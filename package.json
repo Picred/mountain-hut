@@ -1,0 +1,30 @@
+{
+  "name": "mountain-hut",
+  "version": "1.0.0",
+  "description": "- Architecture: client - server - Backend: Node.js - Frontend: React - Database: relational (sqlite) - Authentication: Passport - Email: Nodemailer",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "npm run test:e2e --prefix frontend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Picred/mountain-hut.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Picred/mountain-hut/issues"
+  },
+  "homepage": "https://github.com/Picred/mountain-hut#readme",
+  "devDependencies": {
+    "@vitest/coverage-v8": "^5.0.5",
+    "vitest": "^5.0.5"
+  }
+}
