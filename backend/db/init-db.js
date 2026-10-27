@@ -123,8 +123,7 @@ CREATE TABLE slot_tables (
   slot_table_id INTEGER PRIMARY KEY AUTOINCREMENT,
   slot_id       INTEGER NOT NULL REFERENCES slots (slot_id)   ON DELETE CASCADE,
   table_id      INTEGER NOT NULL REFERENCES tables (table_id) ON DELETE RESTRICT,
-  UNIQUE (slot_id, table_id),
-  UNIQUE (slot_table_id, table_id)   -- serve alla chiave esterna composta di reservation_table
+  UNIQUE (slot_id, table_id)
 );
 
 CREATE TABLE dishes (
@@ -152,7 +151,7 @@ CREATE TABLE reservations (
   status         TEXT    NOT NULL DEFAULT 'confirmed'
                  CHECK (status IN ('confirmed', 'cancelled', 'waiting')),
   created_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  -- ogni prenotazione deve avere un referente: utente registrato o ospite col nome
+  
   CHECK (user_id IS NOT NULL OR guest_name IS NOT NULL)
 );
 
@@ -161,14 +160,9 @@ CREATE INDEX idx_reservations_user        ON reservations (user_id);
 
 CREATE TABLE reservation_table (
   reservation_id  INTEGER NOT NULL REFERENCES reservations (reservation_id) ON DELETE CASCADE,
-  slot_table_id   INTEGER NOT NULL,
-  table_id        INTEGER NOT NULL,
+  slot_table_id   INTEGER NOT NULL REFERENCES slot_tables (slot_table_id)   ON DELETE RESTRICT,
   allocated_seats INTEGER NOT NULL CHECK (allocated_seats > 0),
-  PRIMARY KEY (reservation_id, slot_table_id),
-  -- la coppia (slot_table_id, table_id) deve esistere in slot_tables:
-  -- impedisce di salvare un table_id diverso da quello dello slot_table
-  FOREIGN KEY (slot_table_id, table_id)
-    REFERENCES slot_tables (slot_table_id, table_id) ON DELETE RESTRICT
+  PRIMARY KEY (reservation_id, slot_table_id)
 );
 
 CREATE INDEX idx_reservation_table_slot_table ON reservation_table (slot_table_id);
@@ -280,8 +274,8 @@ async function main() {
 
       for (const [tableId, seats] of r.seats ?? []) {
         const res = await run(db,
-          `INSERT INTO reservation_table (reservation_id, slot_table_id, table_id, allocated_seats)
-           SELECT r.reservation_id, st.slot_table_id, st.table_id, ?
+          `INSERT INTO reservation_table (reservation_id, slot_table_id, allocated_seats)
+           SELECT r.reservation_id, st.slot_table_id, ?
            FROM reservations r
            JOIN slot_tables st ON st.slot_id = r.slot_id
            WHERE r.reservation_id = ? AND st.table_id = ?`,
