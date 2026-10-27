@@ -22,3 +22,9 @@ To update the readme (APIs, changes in db, ...) use the following Google Doc:
 [temporary README]https://docs.google.com/document/d/13gvaBs71VofaLxOHZIONJAvJICQNX7yykZIsvPofW8g/edit?usp=sharing
 
 Finally before merging the `dev` into the `Q&A` copy the part related to the specific user story in the README of `dev`
+
+## Database:
+To create and populate databse:
+`npm run db:init`
+To reset the database (delete, recreate and repopulate):
+`npm run db:reset`

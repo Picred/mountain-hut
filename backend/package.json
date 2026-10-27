@@ -7,7 +7,9 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:init": "node db/init-db.js",
+    "db:reset": "node db/init-db.js --reset"
   },
   "dependencies": {
     "cors": "^2.8.6",
