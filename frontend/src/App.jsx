@@ -4,6 +4,9 @@ import LoginForm from './components/AuthComponents/LoginForm';
 import RegisterForm from './components/AuthComponents/RegistrationForm';
 import { useEffect, useState } from 'react';
 import authAPI from './api/auth_api'; // Assicurati che il nome del file coincida
+import { Homepage } from './pages/Homepage';
+import { Layout } from './pages/Layout';
+import { ReservationPage } from './pages/ReservationPage';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -91,8 +94,9 @@ export const App = () => {
       )}
 
       <Routes>
-        <Route path="/" element={<p> Layout (Utente Loggato: {loggedIn ? user?.name : 'No'}) </p>}>
-          <Route index element={<p> Homepage </p>} />
+        <Route path="/" element={<Layout />}>
+          <Route index element={ <Homepage />} />
+          <Route path="/reservations" element={ loggedIn ? <ReservationPage/> : "Log in first"} />
           <Route path="*" element={<p> Not Found </p>} />
         </Route>
         

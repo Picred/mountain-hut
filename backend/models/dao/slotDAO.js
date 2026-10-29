@@ -30,7 +30,7 @@ export const getSlotsByDate = async (date) => {
             startTime: row.startTime,
             endTime: row.endTime,
             bookingAllowed,
-            restrictionReason: bookingAllowed ? null : 'LESS_THAN_2_HOURS'
+            restrictionReason: bookingAllowed ? null : 'Less than 2 hours'
         };
     });
 
