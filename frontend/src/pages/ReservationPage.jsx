@@ -1,41 +1,66 @@
-import { useState, useEffect } from 'react';
-import { listAvailableSlots, createReservation } from '../api/reservation_api';
-import { useNavigate } from 'react-router';
 
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
+import { listAvailableSlots, createReservation } from "../api/reservation_api";
+import Calendar from "../components/Calendar";
+
+// Format a local date as YYYY-MM-DD without converting it to UTC.
+const dateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Reservation flow for authenticated hikers.
+ * Users choose a date, a time slot and a party size, then submit a booking.
+ * The backend validates availability and returns the assigned tables.
+ */
 export const ReservationPage = () => {
-  const [date, setDate] = useState('');
-  const [selectedSlotId, setSelectedSlotId] = useState('');
+  // Booking form selections.
+  const [date, setDate] = useState("");
+  const [selectedSlotId, setSelectedSlotId] = useState("");
   const [partySize, setPartySize] = useState(1);
 
+  // Slot-fetching state, updated whenever the selected date changes.
   const [slots, setSlots] = useState([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [fetchError, setFetchError] = useState(null);
 
+  // Reservation submission state and successful booking details.
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [reservationDetails, setReservationDetails] = useState(null);
 
   const navigate = useNavigate();
+  const todayStr = dateKey(new Date());
 
+  // Fetch the slots for the selected date and clear any previous slot selection.
   useEffect(() => {
     if (!date) return;
 
+    // Ignore responses from an outdated request if the date changes or the page unmounts.
     let isCancelled = false;
 
     const fetchSlots = async () => {
       setIsLoadingSlots(true);
       setFetchError(null);
-      setSelectedSlotId('');
+      setSelectedSlotId("");
+      setSlots([]);
 
       try {
         const data = await listAvailableSlots(date);
+
         if (!isCancelled) {
           setSlots(data || []);
         }
       } catch (err) {
         if (!isCancelled) {
-          setFetchError(err.message || 'Failed to load available slots.');
+          setFetchError(
+            err.message || "Failed to load time slots."
+          );
           setSlots([]);
         }
       } finally {
@@ -52,204 +77,412 @@ export const ReservationPage = () => {
     };
   }, [date]);
 
-  const selectedSlot = slots.find((s) => String(s.slotId) === String(selectedSlotId));
-
+  // Convert ISO timestamps (stored in UTC) to the browser's local time.
+  // Plain HH:mm strings are displayed without conversion.
   const formatTime = (timeStr) => {
-    if (!timeStr) return '';
-    if (timeStr.includes('T')) {
-      return new Date(timeStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!timeStr) return "";
+
+    if (timeStr.includes("T")) {
+      return new Date(timeStr).toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     }
+
     return timeStr.substring(0, 5);
   };
 
-  const handleDateChange = (e) => {
-    const newDate = e.target.value;
-    setDate(newDate);
+  // Reject past dates and reset the selected slot and any submission error.
+  const handleDateSelect = (newDate) => {
+    if (newDate < dateKey(new Date())) return;
 
-    if (!newDate) {
-      setSlots([]);
-      setSelectedSlotId('');
-      setFetchError(null);
-    }
+    setDate(newDate);
+    setSelectedSlotId("");
+    setSubmitError(null);
   };
 
+  // Submit the selected slot and party size; the backend decides whether
+  // enough seats are available and which tables to allocate.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError(null);
 
     if (!date || !selectedSlotId || !partySize) {
-      setSubmitError('Please fill in all required fields.');
-      return;
-    }
-
-    if (selectedSlot && !selectedSlot.bookingAllowed) {
-      setSubmitError(selectedSlot.restrictionReason || 'This slot is not available for booking.');
+      setSubmitError("Please complete all booking details.");
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const result = await createReservation(selectedSlotId, partySize);
+      const result = await createReservation(
+        selectedSlotId,
+        partySize
+      );
+
       setReservationDetails(result);
       setIsSubmitted(true);
     } catch (err) {
-      setSubmitError(err.message);
+      setSubmitError(
+        err.message || "Unable to complete the reservation."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Format the selected calendar date for the slot section heading.
+  const formattedDate = date
+    ? new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
+    : null;
 
   return (
-    /* 1. Contenitore principale con sfumatura scuro-rocciosa ed effeto sfocatura sui punti luce */
-    <div className="relative min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-stone-900 flex items-center justify-center p-4 overflow-hidden text-neutral-100">
-      
-      {/* Aloni di luce d'ambiente (Glows) */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-80 h-80 bg-amber-600/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen px-4 py-10 sm:px-6 lg:px-8 text-slate-100">
+      <div className="mx-auto max-w-6xl">
 
-      {/* 2. Card principale Glassmorphic con bordo sottile ed estetica coerente col Navbar */}
-      <div className="relative z-10 w-full max-w-2xl bg-neutral-900/80 backdrop-blur-xl border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden">
 
-        {/* Intestazione scura integrata */}
-        <div className="bg-neutral-950/70 border-b border-neutral-800 text-neutral-300 py-3.5 px-6 text-center font-bold tracking-wider uppercase text-xs sm:text-sm flex items-center justify-center gap-2">
-          <svg className="w-4 h-4 text-red-500 fill-current" viewBox="0 0 24 24">
-            <path d="M14 6l-3.8 5.7 1.4 1.4L14 9.5 19 17H5l4-6 2.1 3.1 1.4-1.4L8 6l-6 9h20L14 6z" />
-          </svg>
-          Book a Table
+        {/* Page heading */}
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-center">
+
+          {/* Left: Title and subtitle */}
+          <div>
+
+            <h1 className="text-3xl font-bold text-white sm:text-4xl">
+              Reserve your table
+            </h1>
+
+            <p className="mt-3 text-sm text-slate-400">
+              Choose your preferred date, time and number of guests.
+            </p>
+          </div>
+
+          {/* Right: Booking information */}
+          <div className="space-y-4 lg:pl-4">
+
+            <div className="flex items-start gap-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mt-0.5 shrink-0 text-sky-300"
+              >
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-200">
+                  Shared seating: tables may be shared with other hikers.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mt-0.5 shrink-0 text-sky-300"
+              >
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-200">
+                  Booking deadline: reservations close 2 hours before service.
+                </p>
+              </div>
+            </div>
+
+          </div>
         </div>
 
-        <div className="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-8">
 
-          {/* Dettagli a sinistra */}
-          <div className="text-center md:text-left flex-1">
-            <h1 className="text-2xl font-bold mb-2 text-white">Mountain Hut Dining</h1>
-            <p className="text-sm text-neutral-400 leading-relaxed mb-4">
-              Reserve your table for lunch or dinner. Select your preferred date, time slot, and group size.
+        {/* Show either the booking confirmation or the reservation form. */}
+        {isSubmitted && reservationDetails ? (
+          <div className="mx-auto max-w-xl rounded-2xl border border-emerald-400/30 bg-[#0e1622]/90 p-8 shadow-xl">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </div>
+
+            <h2 className="text-2xl font-bold text-white">
+              Reservation confirmed!
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-400">
+              Your table reservation has been successfully created.
             </p>
 
-            <div className="bg-neutral-800/60 border border-neutral-700/50 p-3.5 rounded-xl text-xs text-neutral-300 space-y-1.5">
-              <p>• <strong className="text-neutral-200">Shared Seating:</strong> Tables are shared with other hikers to optimize space.</p>
-              <p>• <strong className="text-neutral-200">Deadline:</strong> Bookings close 2 hours prior to service time.</p>
-            </div>
-          </div>
-
-          {/* Form o Conferma */}
-          <div className="w-full md:w-72 shrink-0">
-            {isSubmitted && reservationDetails ? (
-              <div className="bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 p-4 rounded-xl text-center space-y-2">
-                <p className="font-bold text-base text-emerald-200">Reservation Confirmed!</p>
-                <p className="text-xs opacity-90">
-                  Code: <strong className="font-mono text-emerald-100">#{reservationDetails.reservationId}</strong>
-                </p>
-                <div className="text-xs border-t border-emerald-500/20 pt-2 text-left space-y-1 opacity-90">
-                  <p>Party Size: <strong>{reservationDetails.partySize} guests</strong></p>
-                  {reservationDetails.tableAllocation?.length > 0 && (
-                    <p>Tables: <strong>{reservationDetails.tableAllocation.map(t => `#${t.tableId} (${t.allocatedSeats} seats)`).join(', ')}</strong></p>
-                  )}
-                </div>
-                <button className="btn btn-outline btn-sm text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/20 w-full mt-3" onClick={() => navigate("/")}>
-                  Return to homepage
-                </button>
+            <div className="mt-6 space-y-3 rounded-xl border border-white/10 bg-[#090f19] p-5 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400">Reservation code</span>
+                <strong className="text-sky-300">
+                  #{reservationDetails.reservationId}
+                </strong>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-3">
 
-                {(submitError || fetchError) && (
-                  <div className="p-2 text-xs bg-red-950/50 border border-red-500/30 text-red-300 rounded-lg">
-                    {submitError || fetchError}
-                  </div>
-                )}
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-400">Guests</span>
+                <strong className="text-white">
+                  {reservationDetails.partySize}
+                </strong>
+              </div>
 
-                {/* Date */}
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-neutral-300">
-                    Date *
-                  </label>
-                  <input
-                    type="date"
-                    min={todayStr}
-                    value={date}
-                    onChange={handleDateChange}
-                    className="input input-bordered w-full input-sm bg-neutral-800/80 border-neutral-700 text-white focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                    required
-                  />
+              {/* A booking may be split across multiple tables. */}
+              {reservationDetails.tableAllocation?.length > 0 && (
+                <div className="border-t border-white/10 pt-3">
+                  <p className="mb-2 text-slate-400">
+                    Assigned tables
+                  </p>
+                  <p className="text-slate-200">
+                    {reservationDetails.tableAllocation
+                      .map(
+                        (table) =>
+                          `${table.tableCode} (${table.allocatedSeats} seats)`
+                      )
+                      .join(", ")}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mt-6 w-full cursor-pointer rounded-xl bg-sky-300 px-5 py-3 font-semibold text-slate-950 transition-colors hover:bg-sky-200"
+            >
+              Return to homepage
+            </button>
+          </div>
+        ) : (
+          <form
+            onSubmit={handleSubmit}
+            className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2"
+          >
+            {/* Left: Calendar */}
+            <div>
+              <div className="mb-4 flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-300 font-bold text-slate-950">
+                  1
+                </span>
+                <h2 className="text-lg font-semibold text-white">
+                  Select a date
+                </h2>
+              </div>
+
+              <Calendar
+                selectedDate={date}
+                onDateSelect={handleDateSelect}
+                minDate={todayStr}
+              />
+            </div>
+
+            {/* Right: Booking details */}
+            <div className="space-y-6">
+
+              {/* Time slots: loading, error, empty and selectable states. */}
+              <div>
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-300 font-bold text-slate-950">
+                    2
+                  </span>
+                  <h2 className="text-lg font-semibold text-white">
+                    Select a time slot
+                  </h2>
                 </div>
 
-                {/* Time Slot */}
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-neutral-300">
-                    Time Slot *
-                  </label>
-                  <select
-                    value={selectedSlotId}
-                    onChange={(e) => setSelectedSlotId(e.target.value)}
-                    disabled={!date || isLoadingSlots}
-                    className="select select-bordered w-full select-sm bg-neutral-800/80 border-neutral-700 text-white focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                    required
-                  >
-                    {!date && <option value="">Select a date first</option>}
-                    {date && isLoadingSlots && <option value="">Loading slots...</option>}
-                    {date && !isLoadingSlots && slots.length === 0 && (
-                      <option value="">No slots available for this date</option>
-                    )}
-                    {date && !isLoadingSlots && slots.length > 0 && (
-                      <>
-                        <option value="">Select a time</option>
+                <section className="rounded-2xl border border-white/10 bg-[#0e1622]/90 p-5 shadow-xl sm:p-6">
+
+                  {!date ? (
+                    <p className="rounded-xl border border-dashed border-white/15 bg-[#090f19] p-5 text-center text-sm text-slate-400">
+                      Select a date on the calendar to view time slots.
+                    </p>
+                  ) : isLoadingSlots ? (
+                    <div className="flex items-center justify-center gap-3 py-10 text-sm text-slate-400">
+                      <span className="loading loading-spinner loading-sm text-sky-300" />
+                      Loading time slots...
+                    </div>
+                  ) : fetchError ? (
+                    <p className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-300">
+                      {fetchError}
+                    </p>
+                  ) : slots.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-white/15 bg-[#090f19] p-5 text-center text-sm text-slate-400">
+                      No time slots found for this date.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mb-4 text-sm text-slate-400">
+                        {formattedDate}
+                      </p>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {slots.map((slot) => {
-                          const timeRange = `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`;
-                          const isAllowed = slot.bookingAllowed;
-                          const reason = slot.restrictionReason ? ` (${slot.restrictionReason})` : '';
+                          const isSelected =
+                            String(selectedSlotId) ===
+                            String(slot.slotId);
 
                           return (
-                            <option
+                            <button
+                              type="button"
                               key={slot.slotId}
-                              value={slot.slotId}
-                              disabled={!isAllowed}
+                              onClick={() => {
+                                setSelectedSlotId(
+                                  String(slot.slotId)
+                                );
+                                setSubmitError(null);
+                              }}
+                              aria-pressed={isSelected}
+                              className={`flex min-h-16 cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${isSelected
+                                ? "border-sky-300 bg-sky-300/10 text-sky-200"
+                                : "border-white/10 bg-[#090f19] text-slate-200 hover:border-sky-300/40 hover:bg-white/5"
+                                }`}
                             >
-                              {timeRange} {!isAllowed ? reason : ''}
-                            </option>
+                              <span className="text-sm font-medium">
+                                {formatTime(slot.startTime)}
+                                {" – "}
+                                {formatTime(slot.endTime)}
+                              </span>
+
+                              {isSelected && (
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="shrink-0 text-sky-300"
+                                >
+                                  <path d="M20 6 9 17l-5-5" />
+                                </svg>
+                              )}
+                            </button>
                           );
                         })}
-                      </>
-                    )}
-                  </select>
+                      </div>
+                    </>
+                  )}
+                </section>
+              </div>
+
+              {/* Guest count: minimum one guest; no frontend maximum. */}
+              <div>
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-300 font-bold text-slate-950">
+                    3
+                  </span>
+                  <h2 className="text-lg font-semibold text-white">
+                    Select number of guests
+                  </h2>
                 </div>
 
-                {/* Party size */}
-                <div>
-                  <label className="block text-xs font-semibold mb-1 text-neutral-300">
-                    Number of People *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={partySize}
-                    onChange={(e) => setPartySize(parseInt(e.target.value, 10) || 1)}
-                    className="input input-bordered w-full input-sm bg-neutral-800/80 border-neutral-700 text-white focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
-                    required
-                  />
-                </div>
+                <section className="rounded-2xl border border-white/10 bg-[#0e1622]/90 p-5 shadow-xl sm:p-6">
 
-                <button
-                  type="submit"
-                  disabled={!selectedSlotId || (selectedSlot && !selectedSlot.bookingAllowed) || isSubmitting}
-                  className="btn btn-error text-white w-full mt-2 btn-sm disabled:bg-neutral-800 disabled:text-neutral-500 disabled:border-neutral-700"
+                  <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#090f19] p-4">
+                    <span className="text-sm text-slate-300">
+                      Guests
+                    </span>
+
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPartySize((current) =>
+                            Math.max(1, current - 1)
+                          )
+                        }
+                        disabled={partySize <= 1}
+                        aria-label="Remove one guest"
+                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/15 text-xl text-sky-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        −
+                      </button>
+
+                      <span className="min-w-6 text-center text-lg font-semibold text-white">
+                        {partySize}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPartySize((current) =>
+                            current + 1
+                          )
+                        }
+                        aria-label="Add one guest"
+                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/15 text-xl text-sky-300 transition-colors hover:bg-white/10"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              {/* Display availability or validation errors returned during booking. */}
+              {submitError && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-300"
                 >
-                  {isSubmitting ? 'Booking...' : 'Check & Reserve'}
-                </button>
+                  {submitError}
+                </div>
+              )}
 
-                <p className="text-[11px] text-center text-neutral-400 mt-2">
-                  Need to change an existing booking? <a href="#modify" className="link text-red-400 hover:text-red-300">Modify reservation</a>
-                </p>
-              </form>
-            )}
-          </div>
-
-        </div>
-
+              {/* Prevent submission until a date and slot are selected or while loading. */}
+              <button
+                type="submit"
+                disabled={
+                  !date ||
+                  !selectedSlotId ||
+                  isSubmitting ||
+                  isLoadingSlots
+                }
+                className="w-full cursor-pointer rounded-xl bg-sky-300 px-5 py-3.5 font-semibold text-slate-950 shadow-lg shadow-sky-300/10 transition-colors hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isSubmitting
+                  ? "Checking reservation..."
+                  : "Check & Reserve"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
