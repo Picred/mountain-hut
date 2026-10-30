@@ -8,8 +8,7 @@
   },
   "scripts": {
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:e2e": "npm run test:e2e --prefix frontend"
+    "test:coverage": "vitest run --coverage"
   },
   "repository": {
     "type": "git",
@@ -25,6 +24,7 @@
   "homepage": "https://github.com/Picred/mountain-hut#readme",
   "devDependencies": {
     "@vitest/coverage-v8": "^5.0.5",
+    "supertest": "^7.3.1",
     "vitest": "^5.0.5"
   }
 }
