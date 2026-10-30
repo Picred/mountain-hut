@@ -1,8 +1,11 @@
 import request from 'supertest';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 
-// url of backend in execution
 const BACKEND_URL = 'http://localhost:3001';
+
+beforeAll(async () => {
+    await import('../../../backend/index.js');
+});
 
 describe("Authentication e2e", () => {
     let agent;
@@ -71,6 +74,8 @@ describe("Authentication e2e", () => {
 
             expect(loginRes.status).toBe(201);
             expect(loginRes.body.email).toBe(testUser.email);
+            expect(loginRes.body.name).toBe(testUser.name);
+            expect(loginRes.body.phone).toBe(testUser.phone);
         });
 
         it("Should give back 401 for wrong credentials", async () => {
@@ -92,6 +97,8 @@ describe("Authentication e2e", () => {
 
             expect(res.status).toBe(200);
             expect(res.body.email).toBe(testUser.email);
+            expect(res.body.name).toBe(testUser.name);
+            expect(res.body.phone).toBe(testUser.phone);
             expect(res.body).not.toHaveProperty('password');
         });
 
