@@ -42,7 +42,9 @@ export const createReservation = async (slotId, partySize) => {
         if (response.status === 401) {
             errorMsg = 'You must be logged in to book a table.';
         } else if (response.status === 409) {
-            if (data.error === 'BOOKING_TOO_LATE') {
+            if (data.error === 'ALREADY_BOOKED') {
+                errorMsg = 'You already have a reservation for this time slot. To change the number of guests, please modify your existing reservation.';
+            } else if (data.error === 'BOOKING_TOO_LATE') {
                 errorMsg = 'Booking is no longer available (less than 2 hours remaining).';
             } else if (data.error === 'NO_AVAILABILITY') {
                 errorMsg = 'Not enough seats available for this party size.';
