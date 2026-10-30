@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import db from '../../db/db.js'; 
 
-// Cerca utente per il login
+// Look for user for login
 export const getUser = (email, password) => {
     return new Promise((resolve, reject) => {
         const sql = `
@@ -14,12 +14,12 @@ export const getUser = (email, password) => {
             if (err) return reject(err);
             if (!row) return resolve(false);
 
-            // Mappiamo row.uId / row.user_id su user_id come richiesto dagli altri endpoint
             const user = { 
-                user_id: row.uId ?? row.user_id, 
+                user_id: row.user_id, 
+                name: row.name,
                 email: row.email, 
-                role: row.role, 
-                cId: row.cId 
+                role: row.role,
+                phone: row.phone
             };
 
             crypto.scrypt(password, row.salt, 32, (err, hashedPassword) => {
