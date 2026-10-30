@@ -252,6 +252,20 @@ export const makeReservation = async (slotId, userId, partySize) => {
             throw new ConflictError('BOOKING_TOO_LATE');
         }
 
+        // An hiker cannot have more than one active booking for the same slot.
+        const existingReservation = await dbGet(`
+            SELECT reservation_id
+            FROM reservations
+            WHERE user_id = ?
+                AND slot_id = ?
+                AND status IN ('confirmed', 'waiting')
+            LIMIT 1
+        `, [userId, slotId], connection);
+
+        if (existingReservation) {
+            throw new ConflictError('ALREADY_BOOKED');
+        }
+
         // Check availability using the SAME connection.
         // Since the write transaction has already started, another
         // connection cannot change the reserved seats before we
