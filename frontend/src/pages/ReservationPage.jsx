@@ -112,6 +112,15 @@ export const ReservationPage = () => {
       return;
     }
 
+    const selectedSlot = slots.find(
+      (slot) => String(slot.slotId) === String(selectedSlotId)
+    );
+    
+    if (!selectedSlot || selectedSlot.bookingAllowed !== true) {
+      setSubmitError("This time slot is no longer available for booking.");
+      return
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -350,6 +359,7 @@ export const ReservationPage = () => {
 
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         {slots.map((slot) => {
+                          const isBookable = slot.bookingAllowed === true;
                           const isSelected =
                             String(selectedSlotId) ===
                             String(slot.slotId);
@@ -358,23 +368,34 @@ export const ReservationPage = () => {
                             <button
                               type="button"
                               key={slot.slotId}
+                              disabled={!isBookable}
                               onClick={() => {
+                                if (!isBookable) return;
                                 setSelectedSlotId(
                                   String(slot.slotId)
                                 );
                                 setSubmitError(null);
                               }}
                               aria-pressed={isSelected}
-                              className={`flex min-h-16 cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${isSelected
-                                ? "border-sky-300 bg-sky-300/10 text-sky-200"
-                                : "border-white/10 bg-[#090f19] text-slate-200 hover:border-sky-300/40 hover:bg-white/5"
-                                }`}
+                              className={`flex min-h-16 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                                !isBookable
+                                  ? "cursor-not-allowed border-white/5 bg-[#090f19]/50 text-slate-500 opacity-50"
+                                  : isSelected
+                                    ? "cursor-pointer border-sky-300 bg-sky-300/10 text-sky-200"
+                                    : "cursor-pointer border-white/10 bg-[#090f19] text-slate-200 hover:border-sky-300/40 hover:bg-white/5"
+                               }`}
                             >
                               <span className="text-sm font-medium">
                                 {formatTime(slot.startTime)}
                                 {" – "}
                                 {formatTime(slot.endTime)}
                               </span>
+
+                              {!isBookable && (
+                                <span className="text-xs font-medium text-amber-300">
+                                  Booking closed
+                                </span>
+                              )}
 
                               {isSelected && (
                                 <svg
