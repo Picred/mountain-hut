@@ -16,7 +16,7 @@ passport.use(new LocalStrategy(
         try {
             const user = await getUser(email, password);
             if (!user) {
-                return callback(null, false, { message: "Email o password non valide." });
+                return callback(null, false, { message: "Invalid email or password." });
             }
             return callback(null, user);
         } catch (err) {
@@ -35,17 +35,17 @@ router.post("/api/users", async (req, res, next) => {
         const { name, email, phone, password } = req.body;
 
         if (!name || !email || !phone || !password) {
-            return next(new BadRequestError("Tutti i campi (name, email, phone, password) sono obbligatori"));
+            return next(new BadRequestError("All fields (name, email, phone, password) are required."));
         }
 
         if (password.length < 6) {
-            return next(new BadRequestError("La password deve contenere almeno 6 caratteri"));
+            return next(new BadRequestError("The password must contain at least 6 characters."));
         }
 
         const result = await createUser(name, email, phone, password);
 
         if (result.isDuplicate) {
-            return next(new ConflictError("Email già in uso")); 
+            return next(new ConflictError("Email already in use"));
         }
 
         const newUser = { 
@@ -73,7 +73,7 @@ router.post("/api/sessions", (req, res, next) => {
         if (err) return next(err);
 
         if (!user) {
-            return next(new UnauthorizedError(info?.message || "Credenziali non valide"));
+            return next(new UnauthorizedError(info?.message || "Invalid credentials."));
         }
         
         req.login(user, (err) => {
