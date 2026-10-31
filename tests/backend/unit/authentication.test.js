@@ -163,7 +163,7 @@ describe('authenticationRoutes', () => {
 
       await verify('anna@mountainhut.test', 'wrong', callback);
 
-      expect(callback).toHaveBeenCalledWith(null, false, { message: 'Email o password non valide.' });
+      expect(callback).toHaveBeenCalledWith(null, false, { message: 'Invalid email or password.' });
     });
   });
 
@@ -185,7 +185,7 @@ describe('authenticationRoutes', () => {
       await register({ body: { ...validBody, password: '12345' } }, fakeRes(), next);
 
       expect(next.mock.calls[0][0]).toBeInstanceOf(BadRequestError);
-      expect(next.mock.calls[0][0].message).toBe('La password deve contenere almeno 6 caratteri');
+      expect(next.mock.calls[0][0].message).toBe('The password must contain at least 6 characters.');
     });
 
     it('rejects with ConflictError when the email is already in use', async () => {
@@ -219,14 +219,14 @@ describe('authenticationRoutes', () => {
       passport.authenticate.mockImplementation((_strategy, cb) => () => cb(err, authUser, info));
 
     it('rejects with UnauthorizedError carrying the strategy message when authentication fails', () => {
-      authenticateWith(null, false, { message: 'Email o password non valide.' });
+      authenticateWith(null, false, { message: 'Invalid email or password.' });
       const next = vi.fn();
 
       login({}, fakeRes(), next);
 
       expect(passport.authenticate.mock.calls[0][0]).toBe('local');
       expect(next.mock.calls[0][0]).toBeInstanceOf(UnauthorizedError);
-      expect(next.mock.calls[0][0].message).toBe('Email o password non valide.');
+      expect(next.mock.calls[0][0].message).toBe('Invalid email or password.');
     });
 
     it('logs the user in and responds 201 with the session user', () => {

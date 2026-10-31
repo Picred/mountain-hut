@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router';
 import authAPI from '../../../frontend/src/api/auth_api';
 import LoginForm from '../../../frontend/src/components/AuthComponents/LoginForm';
 import RegisterForm from '../../../frontend/src/components/AuthComponents/RegistrationForm';
+import LogoutButton from '../../../frontend/src/components/AuthComponents/LogoutButton';
 
 // Navigation is mocked: the components are tested alone, without real routes
 const navigate = vi.hoisted(() => vi.fn());
@@ -119,15 +120,15 @@ describe('authAPI', () => {
 
   // All four functions share the same error handling: it is checked once
   it('throws the error sent by the server', async () => {
-    fetchMock.mockResolvedValue(mockResponse({ ok: false, status: 409, body: { error: 'Email già in uso' } }));
+    fetchMock.mockResolvedValue(mockResponse({ ok: false, status: 409, body: { error: 'Email already in use' } }));
 
-    await expect(authAPI.register('Mario', 'mario@example.com', '333', 'secret1')).rejects.toThrow('Email già in uso');
+    await expect(authAPI.register('Mario', 'mario@example.com', '333', 'secret1')).rejects.toThrow('Email already in use');
   });
 
   it('throws a default message when the error body is not valid JSON', async () => {
     fetchMock.mockResolvedValue(mockResponse({ ok: false, status: 500, invalidJson: true }));
 
-    await expect(authAPI.login('mario@example.com', 'secret1')).rejects.toThrow('Errore durante il login');
+    await expect(authAPI.login('mario@example.com', 'secret1')).rejects.toThrow('Login failed');
   });
 });
 
@@ -163,6 +164,17 @@ describe('LoginForm', () => {
     expect(await screen.findByRole('button', { name: 'Log in' })).toBeEnabled();
   });
 
+  it('shows the error message when the login fails', async () => {
+    const user = userEvent.setup();
+    renderForm(<LoginForm onLogin={vi.fn().mockRejectedValue(new Error('Invalid email or password.'))} />);
+
+    await fillForm(user);
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password.');
+    expect(screen.getByRole('button', { name: 'Log in' })).toBeEnabled();
+  });
+
   it('does not submit when the required fields are empty', async () => {
     const user = userEvent.setup();
     const onLogin = vi.fn();
@@ -177,26 +189,40 @@ describe('LoginForm', () => {
     const user = userEvent.setup();
     renderForm(<LoginForm onLogin={vi.fn()} />);
 
-    await user.click(screen.getByRole('button', { name: 'Torna indietro' }));
+    await user.click(screen.getByRole('button', { name: 'Back to homepage' }));
 
     expect(navigate).toHaveBeenCalledWith('/');
   });
 });
 
 describe('RegisterForm', () => {
+  async function fillForm(user) {
+    await user.type(screen.getByPlaceholderText('Mario Rossi'), 'Mario Rossi');
+    await user.type(screen.getByPlaceholderText('mario@example.com'), 'mario@example.com');
+    await user.type(screen.getByPlaceholderText('333 1234567'), '3331234567');
+    await user.type(screen.getByPlaceholderText('••••••••'), 'secret1');
+  }
+
   it('calls onRegister with name, email, phone and password', async () => {
     const user = userEvent.setup();
     const onRegister = vi.fn().mockResolvedValue();
     renderForm(<RegisterForm onRegister={onRegister} />);
 
-    await user.type(screen.getByPlaceholderText('Mario Rossi'), 'Mario Rossi');
-    await user.type(screen.getByPlaceholderText('mario@example.com'), 'mario@example.com');
-    await user.type(screen.getByPlaceholderText('333 1234567'), '3331234567');
-    await user.type(screen.getByPlaceholderText('••••••••'), 'secret1');
-    await user.click(screen.getByRole('button', { name: 'Register' }));
+    await fillForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(onRegister).toHaveBeenCalledTimes(1);
     expect(onRegister).toHaveBeenCalledWith('Mario Rossi', 'mario@example.com', '3331234567', 'secret1');
+  });
+
+  it('shows the error message when the registration fails', async () => {
+    const user = userEvent.setup();
+    renderForm(<RegisterForm onRegister={vi.fn().mockRejectedValue(new Error('Email already in use'))} />);
+
+    await fillForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Email already in use');
   });
 
   // jsdom does not enforce minLength on typed values, so the constraint is checked on the input itself
@@ -207,5 +233,17 @@ describe('RegisterForm', () => {
       expect(screen.getByPlaceholderText(placeholder)).toBeRequired();
     }
     expect(screen.getByPlaceholderText('••••••••')).toHaveAttribute('minLength', '6');
+  });
+});
+
+describe('LogoutButton', () => {
+  it('calls onLogout when clicked', async () => {
+    const user = userEvent.setup();
+    const onLogout = vi.fn();
+    render(<LogoutButton onLogout={onLogout} />);
+
+    await user.click(screen.getByRole('button', { name: 'Logout' }));
+
+    expect(onLogout).toHaveBeenCalledTimes(1);
   });
 });
