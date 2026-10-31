@@ -11,11 +11,12 @@ const SERVER_URL = 'http://localhost:3001';
 const ANNA = { user_id: 3, name: 'Anna Winden', email: 'anna@mountainhut.test', phone: '+393401234567', role: 'hiker' };
 
 // Only Date is faked, so the calendar always opens on November 2026; timers stay real
-const TODAY = new Date(2026, 10, 10, 10, 0);
+// It is 11:00: lunch at 12:00 is less than 2 hours away, dinner at 19:00 can still be booked
+const TODAY = new Date(2026, 10, 11, 11, 0);
 const DATE = '2026-11-11';
 const at = (hour) => new Date(2026, 10, 11, hour, 0).toISOString();
 const SLOTS = [
-  { slotId: 1, startTime: at(12), endTime: at(14), bookingAllowed: true, restrictionReason: null },
+  { slotId: 1, startTime: at(12), endTime: at(14), bookingAllowed: false, restrictionReason: 'Less than 2 hours' },
   { slotId: 2, startTime: at(19), endTime: at(21), bookingAllowed: true, restrictionReason: null },
 ];
 
@@ -78,7 +79,7 @@ describe('Reservation flow', () => {
     const submit = screen.getByRole('button', { name: 'Check & Reserve' });
 
     expect(lastCall('GET', '/api/slots')[0]).toBe(`${SERVER_URL}/api/slots?date=${DATE}`);
-    expect(screen.getByRole('button', { name: '12:00 – 14:00' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /12:00 – 14:00/ })).toBeDisabled(); // less than 2 hours left
     expect(submit).toBeDisabled(); // the time slot is still missing
 
     await user.click(screen.getByRole('button', { name: '19:00 – 21:00' }));
