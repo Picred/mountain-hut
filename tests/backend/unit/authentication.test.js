@@ -92,9 +92,13 @@ describe('authenticationDAO', () => {
       const user = await getUser('anna@mountainhut.test', 'password');
 
       expect(db.get.mock.calls[0][1]).toEqual(['anna@mountainhut.test']);
-      expect(user).toMatchObject({ user_id: 3, email: 'anna@mountainhut.test', role: 'hiker' });
-      expect(user).not.toHaveProperty('password_hash');
-      expect(user).not.toHaveProperty('salt');
+      expect(user).toEqual({
+        user_id: 3,
+        name: 'Anna Winden',
+        email: 'anna@mountainhut.test',
+        role: 'hiker',
+        phone: '+393401234567',
+      });
     });
 
     it('returns false when the password is wrong', async () => {
