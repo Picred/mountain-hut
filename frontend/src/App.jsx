@@ -7,6 +7,7 @@ import authAPI from './api/auth_api'; // Assicurati che il nome del file coincid
 import { Homepage } from './pages/Homepage';
 import { Layout } from './pages/Layout';
 import { ReservationPage } from './pages/ReservationPage';
+import { CapacityPage } from './pages/CapacityPage';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -16,6 +17,7 @@ export const App = () => {
 
   const navigate = useNavigate(); // to redirect the user
   const location = useLocation();
+
 
   // checks session
   useEffect(() => {
@@ -125,7 +127,6 @@ export const App = () => {
         </div>
       )}
 
-
       <Routes>
         <Route
           path="/"
@@ -146,14 +147,37 @@ export const App = () => {
                 <div className="flex items-center justify-center text-slate-300">
                   Checking session...
                 </div>
-              ) : loggedIn ? (
-                <ReservationPage />
-              ) : (
+              ) : !loggedIn ? (
                 <Navigate
                   to="/login"
                   replace
                   state={{ from: location.pathname }}
                 />
+              ) : user?.role === "employee" ? (
+                <Navigate to="/" replace />
+              ) : (
+                <ReservationPage />
+              )
+            }
+          />
+
+          <Route
+            path="/capacity"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate
+                  to="/login"
+                  replace
+                  state={{ from: location.pathname }}
+                />
+              ) : user?.role !== "employee" ? (
+                <Navigate to="/" replace />
+              ) : (
+                <CapacityPage />
               )
             }
           />
