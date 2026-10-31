@@ -21,6 +21,7 @@ export const checkAvailability = async (slotId, partySize, connection = db) => {
         SELECT
             st.slot_table_id AS slotTableId,
             t.table_id AS tableId,
+            t.table_code AS tableCode,
             t.seats AS totalSeats,
             (
                 SELECT COALESCE(SUM(rt.allocated_seats), 0)
@@ -42,6 +43,7 @@ export const checkAvailability = async (slotId, partySize, connection = db) => {
         .map(row => ({
             slotTableId: row.slotTableId,
             tableId: row.tableId,
+            tableCode: row.tableCode,
             freeSeats: row.totalSeats - row.occupiedSeats
         }))
         .filter(table => table.freeSeats > 0);
@@ -176,6 +178,7 @@ const findBestAllocation = (tables, partySize) => {
         return {
             slotTableId: table.slotTableId,
             tableId: table.tableId,
+            tableCode: table.tableCode,
             allocatedSeats
         };
     });
@@ -342,6 +345,7 @@ export const makeReservation = async (slotId, userId, partySize) => {
             status: 'confirmed',
             tableAllocation: availability.tableAllocation.map(table => ({
                 tableId: table.tableId,
+                tableCode: table.tableCode,
                 allocatedSeats: table.allocatedSeats
             }))
         };
