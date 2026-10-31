@@ -150,7 +150,7 @@ describe('POST /api/reservations', () => {
       slotId: 4,
       partySize: 3,
       status: 'confirmed',
-      tableAllocation: [{ tableId: 1, allocatedSeats: 3 }],
+      tableAllocation: [{ tableId: 1, tableCode: 'T1', allocatedSeats: 3 }],
     });
     const saved = db.prepare(`
       SELECT r.user_id, r.status, t.table_id, rt.allocated_seats
@@ -170,7 +170,7 @@ describe('POST /api/reservations', () => {
 
     // T3 has 1 free seat next to Anna's party of 5: preferred to the empty T2 (4) and T5 (2)
     expect(res.status).toBe(201);
-    expect(res.body.tableAllocation).toEqual([{ tableId: 3, allocatedSeats: 1 }]);
+    expect(res.body.tableAllocation).toEqual([{ tableId: 3, tableCode: 'T3', allocatedSeats: 1 }]);
   });
 
   it('splits the party over the fewest tables when no single table is big enough', async () => {
@@ -180,8 +180,8 @@ describe('POST /api/reservations', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.tableAllocation).toEqual([
-      { tableId: 1, allocatedSeats: 4 },
-      { tableId: 3, allocatedSeats: 4 },
+      { tableId: 1, tableCode: 'T1', allocatedSeats: 4 },
+      { tableId: 3, tableCode: 'T3', allocatedSeats: 4 },
     ]);
   });
 
