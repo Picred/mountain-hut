@@ -30,6 +30,7 @@ export default defineConfig({
       'src/**/*.{test,spec}.{js,ts,jsx,tsx}',
       'tests/**/*.{js,ts,jsx,tsx}',
       '../tests/frontend/**/*.{js,ts,jsx,tsx}'
-    ]
+    ],
+    exclude: ['../tests/frontend/e2e/**', '**/node_modules/**']
   }
 })
