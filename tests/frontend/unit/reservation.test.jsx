@@ -164,6 +164,20 @@ describe('ReservationPage', () => {
     expect(screen.getByRole('button', { name: 'Check & Reserve' })).toBeDisabled();
   });
 
+  it('does not let the guest count go below one', async () => {
+    const user = userEvent.setup();
+    renderPage(<ReservationPage />);
+
+    const removeGuest = screen.getByRole('button', { name: 'Remove one guest' });
+    expect(removeGuest).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Add one guest' }));
+    expect(removeGuest).toBeEnabled();
+
+    await user.click(removeGuest);
+    expect(removeGuest).toBeDisabled();
+  });
+
   it('loads slots when a date is selected', async () => {
     const user = userEvent.setup();
     const mockSlots = [
