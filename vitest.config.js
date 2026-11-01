@@ -18,7 +18,8 @@ export default defineConfig({
         '**/dist/**',
         '**/*.config.*',
         'tests/**',
-        '**/tests/**'
+        '**/tests/**',
+        'backend/db/init-db.js',
       ]
     }
   }

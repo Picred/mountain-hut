@@ -75,7 +75,7 @@ describe('Authentication flow', () => {
     await logIn(user);
 
     await expectLoggedInAs('Anna Winden');
-    expect(screen.getByRole('heading', { name: 'Welcome to Mountain Hut' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Welcome to Mountain Hut' })).toBeInTheDocument();
     expect(JSON.parse(calls('POST', '/api/sessions')[0][1].body)).toEqual({ email: ANNA.email, password: 'password' });
   });
 

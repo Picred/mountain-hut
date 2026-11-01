@@ -146,8 +146,10 @@ export const App = () => {
                 <div className="flex items-center justify-center text-slate-300">
                   Checking session...
                 </div>
-              ) : loggedIn ? (
+              ) : loggedIn && user?.role === 'hiker' ? (
                 <ReservationPage />
+              ) : loggedIn ? (
+                <Navigate to="/" replace />
               ) : (
                 <Navigate
                   to="/login"

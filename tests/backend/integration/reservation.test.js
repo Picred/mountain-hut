@@ -83,10 +83,19 @@ afterEach(() => {
   db.prepare('DELETE FROM slots WHERE slot_id > ?').run(seed.slotId);
 });
 
-afterAll(() => {
-  server?.kill();
+afterAll(async () => {
+  if (server && server.exitCode === null) {
+    await new Promise((resolve) => {
+      server.once('exit', resolve);
+      server.kill();
+    });
+  }
+
   db?.close();
-  rmSync(tmpDir, { recursive: true, force: true });
+
+  if (tmpDir) {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 describe('GET /api/slots', () => {
