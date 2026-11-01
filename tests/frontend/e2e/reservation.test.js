@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const API = 'http://localhost:3001';
+const API = 'http://localhost:3002'; // e2e backend, see playwright.config.js
 
 // Helper to create a unique test user via API
 async function createUniqueUser(request) {

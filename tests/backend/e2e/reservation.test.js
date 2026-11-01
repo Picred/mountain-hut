@@ -1,30 +1,13 @@
 import request from 'supertest';
-import sqlite3 from 'sqlite3';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { DB_PATH } from '../../../backend/db/db.js';
+import { execFileSync } from 'node:child_process';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = 'http://localhost:3002'; // PORT, see backend/vitest.config.js
 
-// Helper to remove any test data added during test runs
-function cleanupTestData() {
-  return new Promise((resolve) => {
-    const db = new sqlite3.Database(DB_PATH);
-    db.serialize(() => {
-      db.run('DELETE FROM reservation_table WHERE reservation_id > 8');
-      db.run('DELETE FROM reservations WHERE reservation_id > 8');
-      db.run('DELETE FROM users WHERE email LIKE "%@example.com"');
-      db.close(resolve);
-    });
-  });
-}
-
+// Recreate the e2e database (DB_PATH, see backend/vitest.config.js) from the demo data, then start the backend
 beforeAll(async () => {
+  execFileSync('node', ['db/init-db.js', '--reset'], { cwd: new URL('../../../backend', import.meta.url) });
   await import('../../../backend/index.js');
-  await cleanupTestData();
-});
-
-afterAll(async () => {
-  await cleanupTestData();
 });
 
 function getLocalDateString(dayOffset = 1) {

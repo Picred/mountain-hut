@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const API = 'http://localhost:3001';
+const API = 'http://localhost:3002'; // e2e backend, see playwright.config.js
 
 // Creates a unique user through the API. The `request` fixture has its own
 // context, so the browser (`page`) stays unauthenticated.

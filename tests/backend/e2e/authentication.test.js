@@ -1,9 +1,12 @@
 import request from 'supertest';
+import { execFileSync } from 'node:child_process';
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = 'http://localhost:3002'; // PORT, see backend/vitest.config.js
 
+// Recreate the e2e database (DB_PATH, see backend/vitest.config.js) from the demo data, then start the backend
 beforeAll(async () => {
+    execFileSync('node', ['db/init-db.js', '--reset'], { cwd: new URL('../../../backend', import.meta.url) });
     await import('../../../backend/index.js');
 });
 
