@@ -87,6 +87,9 @@ const RESERVATIONS = [
   { id: 7, slotId: 2, userId: 4, createdBy: 4, partySize: 2, status: 'cancelled', createdAt: hoursAgo(20) },
   { id: 8, slotId: 3, userId: 5, createdBy: 5, partySize: 3, createdAt: hoursAgo(1),
     seats: [[5, 2], [4, 1]], requirements: [[1, 'celiac', 1]] },
+//reservation to test table adding
+  { id: 9, slotId: 4, userId: 5, createdBy: 5, partySize: 8, createdAt: hoursAgo(10),
+  seats: [[1, 4], [3, 4]], requirements: [[3, 'lactose free', 1]] },
 ];
 
 
@@ -115,8 +118,10 @@ CREATE INDEX idx_slots_start_at ON slots (start_at);
 
 CREATE TABLE tables (
   table_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-  table_code TEXT    NOT NULL UNIQUE,
-  seats      INTEGER NOT NULL CHECK (seats > 0)
+  table_code TEXT    NOT NULL,
+  seats      INTEGER NOT NULL CHECK (seats > 0),
+  -- code can repeat itself (T1 of 4, T1 of 6), but not with same number of seats
+  UNIQUE (table_code, seats)
 );
 
 CREATE TABLE slot_tables (
@@ -151,7 +156,6 @@ CREATE TABLE reservations (
   status         TEXT    NOT NULL DEFAULT 'confirmed'
                  CHECK (status IN ('confirmed', 'cancelled', 'waiting')),
   created_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  
   CHECK (user_id IS NOT NULL OR guest_name IS NOT NULL)
 );
 

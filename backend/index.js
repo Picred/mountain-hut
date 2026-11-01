@@ -9,6 +9,8 @@ import slotRoutes from './api/slotRoutes.js';
 import reservationRoutes from './api/reservationRoutes.js';
 
 import { errorHandler } from './utils/errorHandler.js';
+import capacityRoutes from './api/capacityRoutes.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +40,7 @@ app.use(passport.session());
 app.use(authenticationRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/reservations', reservationRoutes);
+app.use(capacityRoutes);
 
 // Centralized error handler (must be registered after the routes).
 app.use(errorHandler);
