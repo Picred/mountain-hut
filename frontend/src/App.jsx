@@ -87,10 +87,10 @@ export const App = () => {
       await authAPI.logout();
       setLoggedIn(false);
       setUser(undefined);
-      setMessage({ msg: "Logout effettuato.", type: "info" });
+      setMessage({ msg: "Logged out successfully!", type: "info" });
       navigate("/"); // redirects to homepage after logout 
     } catch {
-      setMessage({ msg: "Logout non riuscito. Riprova.", type: "error" });
+      setMessage({ msg: "Logout failed. Please try again.", type: "error" });
     }
   }
 

@@ -59,7 +59,7 @@ export default function RegisterForm({ onRegister }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-200">
-              Full bame
+              Full name
             </label>
             <input
               type="text"
