@@ -16,6 +16,11 @@ export const getSlotsByDate = async (date) => {
             strftime('%s', start_at) - strftime('%s', 'now') AS secondsUntilStart
         FROM slots
         WHERE DATE(start_at, 'localtime') = ?
+            AND EXISTS (
+                SELECT 1
+                FROM slot_tables st
+                WHERE st.slot_id = slots.slot_id
+            )
         ORDER BY start_at
     `;
 
