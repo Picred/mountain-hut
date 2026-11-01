@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
@@ -29,6 +29,13 @@ function mockResponse({ ok = true, status = 200, body = {}, invalidJson = false 
 
 // MemoryRouter provides the routing context expected by components using router hooks
 const renderPage = (element) => render(<MemoryRouter>{element}</MemoryRouter>);
+
+function todayKey() {
+  const date = new Date();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -93,7 +100,7 @@ describe('reservation_api', () => {
         slotId: 2,
         partySize: 4,
         status: 'confirmed',
-        tableAllocation: [{ tableId: 1, allocatedSeats: 4 }],
+        tableAllocation: [{ tableId: 1, tableCode: 'A1', allocatedSeats: 4 }],
       };
       fetchMock.mockResolvedValue(mockResponse({ status: 201, body: reservation }));
 
@@ -148,71 +155,61 @@ describe('ReservationPage', () => {
     vi.stubGlobal('fetch', fetchMock);
   });
 
-  it('renders the reservation page title and form elements', () => {
-    // Labels do not use htmlFor attributes in the component, so inputs are queried directly by selector
-    const { container } = renderPage(<ReservationPage />);
+  it('shows the reservation form with the reserve button disabled', () => {
+    renderPage(<ReservationPage />);
 
-    expect(screen.getByText('Mountain Hut Dining')).toBeInTheDocument();
-    expect(container.querySelector('input[type="date"]')).toBeInTheDocument();
-    expect(container.querySelector('select')).toBeInTheDocument();
-    expect(container.querySelector('input[type="number"]')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Check & Reserve/i })).toBeDisabled();
+    expect(screen.getByRole('heading', { name: 'Reserve your table' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Select a date' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Select a time slot' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check & Reserve' })).toBeDisabled();
   });
 
-  it('fetches slots when date is selected and populates slot options', async () => {
+  it('loads slots when a date is selected', async () => {
     const user = userEvent.setup();
     const mockSlots = [
-      { slotId: 1, startTime: '12:00', endTime: '13:00', bookingAllowed: true, restrictionReason: null },
-      { slotId: 2, startTime: '13:00', endTime: '14:00', bookingAllowed: false, restrictionReason: 'Less than 2 hours' },
+      { slotId: 1, startTime: '12:00', endTime: '13:00' },
     ];
     fetchMock.mockResolvedValue(mockResponse({ status: 200, body: mockSlots }));
 
-    const { container } = renderPage(<ReservationPage />);
+    renderPage(<ReservationPage />);
 
-    const dateInput = container.querySelector('input[type="date"]');
-    await user.type(dateInput, '2026-11-01');
+    await user.click(screen.getByRole('button', { name: todayKey() }));
 
-    await waitFor(() => {
-      expect(screen.getByRole('option', { name: /12:00 - 13:00/i })).toBeInTheDocument();
-    });
-
-    // Slots with bookingAllowed=false should be rendered with disabled attribute
-    const restrictedOption = screen.getByRole('option', { name: /13:00 - 14:00 \(Less than 2 hours\)/i });
-    expect(restrictedOption).toBeDisabled();
+    expect(await screen.findByRole('button', { name: /12:00.*13:00/ })).toBeInTheDocument();
   });
 
   it('submits reservation and displays confirmation on success', async () => {
     const user = userEvent.setup();
     const mockSlots = [
-      { slotId: 1, startTime: '12:00', endTime: '13:00', bookingAllowed: true, restrictionReason: null },
+      { slotId: 1, startTime: '12:00', endTime: '13:00' },
     ];
     const mockReservation = {
       reservationId: 123,
       slotId: 1,
       partySize: 2,
       status: 'confirmed',
-      tableAllocation: [{ tableId: 1, allocatedSeats: 2 }],
+      tableAllocation: [{ tableId: 1, tableCode: 'A1', allocatedSeats: 2 }],
     };
 
     fetchMock
       .mockResolvedValueOnce(mockResponse({ status: 200, body: mockSlots }))
       .mockResolvedValueOnce(mockResponse({ status: 201, body: mockReservation }));
 
-    const { container } = renderPage(<ReservationPage />);
+    renderPage(<ReservationPage />);
 
-    const dateInput = container.querySelector('input[type="date"]');
-    await user.type(dateInput, '2026-11-01');
+    await user.click(screen.getByRole('button', { name: todayKey() }));
+    await user.click(await screen.findByRole('button', { name: /12:00.*13:00/ }));
+    await user.click(screen.getByRole('button', { name: 'Add one guest' }));
+    await user.click(screen.getByRole('button', { name: 'Check & Reserve' }));
 
-    const slotSelect = await screen.findByRole('combobox');
-    await user.selectOptions(slotSelect, '1');
-
-    const submitBtn = screen.getByRole('button', { name: /Check & Reserve/i });
-    expect(submitBtn).toBeEnabled();
-    await user.click(submitBtn);
-
-    // Verify UI switches from the form to the confirmation view
-    expect(await screen.findByText('Reservation Confirmed!')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Reservation confirmed!' })).toBeInTheDocument();
     expect(screen.getByText('#123')).toBeInTheDocument();
-    expect(screen.getByText(/2 guests/i)).toBeInTheDocument();
+    expect(screen.getByText('A1 (2 seats)')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith(`${SERVER_URL}/reservations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ slotId: 1, partySize: 2 }),
+    });
   });
 });

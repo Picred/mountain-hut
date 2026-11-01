@@ -51,23 +51,23 @@ describe('reservationDAO', () => {
     it('finds the best single table that minimizes unused seats', async () => {
       // Table 1 has 4 seats, Table 2 has 6 seats. For a party of 3, Table 1 leaves fewer empty seats
       dbAll.mockResolvedValue([
-        { slotTableId: 1, tableId: 1, totalSeats: 4, occupiedSeats: 0 },
-        { slotTableId: 2, tableId: 2, totalSeats: 6, occupiedSeats: 0 },
+        { slotTableId: 1, tableId: 1, tableCode: 'A1', totalSeats: 4, occupiedSeats: 0 },
+        { slotTableId: 2, tableId: 2, tableCode: 'A2', totalSeats: 6, occupiedSeats: 0 },
       ]);
 
       const result = await checkAvailability(1, 3);
 
       expect(result).toEqual({
         available: true,
-        tableAllocation: [{ slotTableId: 1, tableId: 1, allocatedSeats: 3 }],
+        tableAllocation: [{ slotTableId: 1, tableId: 1, tableCode: 'A1', allocatedSeats: 3 }],
       });
     });
 
     it('splits a party across multiple tables when no single table is big enough', async () => {
       // Party of 6 cannot fit on a single 4-seat table, so assign 4 on Table 1 and 2 on Table 2
       dbAll.mockResolvedValue([
-        { slotTableId: 1, tableId: 1, totalSeats: 4, occupiedSeats: 0 },
-        { slotTableId: 2, tableId: 2, totalSeats: 4, occupiedSeats: 0 },
+        { slotTableId: 1, tableId: 1, tableCode: 'A1', totalSeats: 4, occupiedSeats: 0 },
+        { slotTableId: 2, tableId: 2, tableCode: 'A2', totalSeats: 4, occupiedSeats: 0 },
       ]);
 
       const result = await checkAvailability(1, 6);
@@ -75,8 +75,8 @@ describe('reservationDAO', () => {
       expect(result).toEqual({
         available: true,
         tableAllocation: [
-          { slotTableId: 1, tableId: 1, allocatedSeats: 4 },
-          { slotTableId: 2, tableId: 2, allocatedSeats: 2 },
+          { slotTableId: 1, tableId: 1, tableCode: 'A1', allocatedSeats: 4 },
+          { slotTableId: 2, tableId: 2, tableCode: 'A2', allocatedSeats: 2 },
         ],
       });
     });
@@ -167,7 +167,7 @@ describe('reservationDAO', () => {
         .mockResolvedValueOnce(null);
 
       dbAll.mockResolvedValue([
-        { slotTableId: 10, tableId: 1, totalSeats: 4, occupiedSeats: 0 },
+        { slotTableId: 10, tableId: 1, tableCode: 'A1', totalSeats: 4, occupiedSeats: 0 },
       ]);
 
       const reservation = await makeReservation(1, 5, 2);
@@ -177,7 +177,7 @@ describe('reservationDAO', () => {
         slotId: 1,
         partySize: 2,
         status: 'confirmed',
-        tableAllocation: [{ tableId: 1, allocatedSeats: 2 }],
+        tableAllocation: [{ tableId: 1, tableCode: 'A1', allocatedSeats: 2 }],
       });
       expect(dbRun).toHaveBeenCalledWith('BEGIN IMMEDIATE', [], expect.anything());
       expect(dbRun).toHaveBeenCalledWith('COMMIT', [], expect.anything());
@@ -196,7 +196,7 @@ describe('reservationDAO', () => {
         .mockResolvedValueOnce(null);
 
       dbAll.mockResolvedValue([
-        { slotTableId: 10, tableId: 1, totalSeats: 4, occupiedSeats: 0 },
+        { slotTableId: 10, tableId: 1, tableCode: 'A1', totalSeats: 4, occupiedSeats: 0 },
       ]);
 
       await expect(makeReservation(1, 5, 2)).rejects.toThrow('SQLITE_ERROR: disk I/O error');
@@ -242,7 +242,7 @@ describe('reservationRoutes', () => {
         slotId: 1,
         partySize: 3,
         status: 'confirmed',
-        tableAllocation: [{ tableId: 2, allocatedSeats: 3 }],
+        tableAllocation: [{ tableId: 2, tableCode: 'B1', allocatedSeats: 3 }],
       };
       makeReservationMock.mockResolvedValue(mockReservation);
 
