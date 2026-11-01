@@ -30,7 +30,7 @@ async function fillRegister(page, { name, email, phone, password }) {
   await page.getByPlaceholder('mario@example.com').fill(email);
   await page.getByPlaceholder('333 1234567').fill(phone);
   await page.getByPlaceholder('••••••••').fill(password);
-  await page.getByRole('button', { name: 'Register', exact: true }).click();
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
 }
 
 test.describe('Login', () => {
@@ -76,7 +76,7 @@ test.describe('Login', () => {
 
   test('back button returns to the home page', async ({ page }) => {
     await page.goto('/login');
-    await page.getByRole('button', { name: 'Torna indietro' }).click();
+    await page.getByRole('button', { name: 'Back to homepage' }).click();
     await expect(page).toHaveURL('/');
   });
 });
@@ -102,8 +102,8 @@ test.describe('Registration', () => {
     await fillRegister(page, user);
 
     await expect(page).toHaveURL('/register');
-    // Backend message ("Email già in uso")
-    await expect(page.getByText(/email già in uso/i)).toBeVisible();
+    // Backend message ("Email already in use")
+    await expect(page.getByRole('alert')).toHaveText(/email already in use/i);
   });
 
   test('password shorter than 6 characters: the browser blocks the submission', async ({ page }) => {
@@ -126,7 +126,7 @@ test.describe('Registration', () => {
 
   test('empty required fields: no request is sent', async ({ page }) => {
     await page.goto('/register');
-    await page.getByRole('button', { name: 'Register', exact: true }).click();
+    await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
     await expect(page).toHaveURL('/register');
     await expect(page.locator('input:invalid')).not.toHaveCount(0);
@@ -160,7 +160,7 @@ test.describe('Logout', () => {
     await login(page, user);
     await expect(page).toHaveURL('/');
 
-    await page.getByRole('button', { name: 'User Avatar' }).click(); // opens the dropdown
+    await page.getByRole('button', { name: user.name }).click(); // opens the dropdown
     await page.getByRole('button', { name: 'Logout' }).click();
 
     const res = await page.request.get(`${API}/api/sessions/current`);
