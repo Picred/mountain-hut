@@ -11,6 +11,11 @@ export default defineConfig({
   test: {
     name: 'backend',
     environment: 'node',
+    // e2e tests run on their own database (recreated by each e2e file) and port, never on the dev ones
+    env: { DB_PATH: fileURLToPath(new URL('./db/e2e.sqlite', import.meta.url)), PORT: '3002' },
+    // every e2e file starts backend/index.js on port 3002: running files in parallel,
+    // the first one to finish closes the server the others are still using
+    fileParallelism: false,
     include: [
       'tests/**/*.{js,ts}',
       '../tests/backend/**/*.{js,ts}',
