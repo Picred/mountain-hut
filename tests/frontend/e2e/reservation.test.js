@@ -35,10 +35,18 @@ function getLocalDateKey(offsetDays = 1) {
 }
 
 test.describe('Reservation Flow (E2E)', () => {
-  test('unauthenticated user is redirected to /login when navigating to /reservations', async ({ page }) => {
+  test('unauthenticated user can access the reservation page to check availability', async ({ page }) => {
     await page.goto('/reservations');
-    // Protected route redirects unauthenticated visitor to login
-    await expect(page).toHaveURL(/\/login/);
+
+    await expect(page).toHaveURL('/reservations');
+
+    await expect(
+      page.getByRole('heading', { name: 'Reserve your table' })
+    ).toBeVisible();
+
+    await expect(
+      page.getByRole('button', { name: 'Check availability' })
+    ).toBeDisabled();
   });
 
   test('authenticated user can select date, slot, party size and book a table', async ({ page, request }) => {
@@ -66,8 +74,13 @@ test.describe('Reservation Flow (E2E)', () => {
     await dateButton.click();
 
     // 5. Wait for slots to load and select the first available slot
-    const slotButton = page.locator('button:has-text("–"), button:has-text("-")').first();
-    await expect(slotButton).toBeVisible();
+    const slotButton = page
+      .getByRole('button', { name: /\d{2}:\d{2}\s*[–-]\s*\d{2}:\d{2}/ })
+      .filter({ visible: true })
+      .and(page.locator('button:not([disabled])'))
+      .first();
+
+    await expect(slotButton).toBeEnabled();
     await slotButton.click();
 
     // 6. Adjust party size: click "+" to increase to 2 guests
@@ -76,14 +89,36 @@ test.describe('Reservation Flow (E2E)', () => {
     const guestCounter = page.locator('div:has(> button[aria-label="Add one guest"]) > span');
     await expect(guestCounter).toHaveText('2');
 
-    // 7. Submit reservation
-    const reserveButton = page.getByRole('button', { name: /Check & Reserve|Checking reservation/i });
+    // 7. Check availability for the selected slot and party size
+    const checkButton = page.getByRole('button', {
+      name: 'Check availability',
+    });
+
+    await expect(checkButton).toBeEnabled();
+    await checkButton.click();
+
+    // 8. Verify that a table is available for 2 guests
+    await expect(
+      page.getByText('Table available for 2 guests')
+    ).toBeVisible();
+
+    // 9. Confirm the reservation
+    const reserveButton = page.getByRole('button', {
+      name: 'Reserve',
+      exact: true,
+    });
+
     await expect(reserveButton).toBeEnabled();
     await reserveButton.click();
 
-    // 8. Verify confirmation screen
-    await expect(page.getByText(/Reservation confirmed!/i)).toBeVisible();
-    await expect(page.getByText(/Reservation code/i)).toBeVisible();
+    // 10. Verify confirmation screen
+    await expect(
+      page.getByText(/Reservation confirmed!/i)
+    ).toBeVisible();
+
+    await expect(
+      page.getByText(/Reservation code/i)
+    ).toBeVisible();
 
     // 9. Click return to homepage
     await page.getByRole('button', { name: 'Return to homepage' }).click();

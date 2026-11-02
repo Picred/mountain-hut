@@ -161,7 +161,7 @@ describe('ReservationPage', () => {
     expect(screen.getByRole('heading', { name: 'Reserve your table' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Select a date' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Select a time slot' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Check & Reserve' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Check availability' })).toBeDisabled();
   });
 
   it('does not let the guest count go below one', async () => {
@@ -185,7 +185,7 @@ describe('ReservationPage', () => {
     ];
     fetchMock.mockResolvedValue(mockResponse({ status: 200, body: mockSlots }));
 
-    renderPage(<ReservationPage />);
+    renderPage(<ReservationPage loggedIn={true} />);
 
     await user.click(screen.getByRole('button', { name: todayKey() }));
 
@@ -205,16 +205,34 @@ describe('ReservationPage', () => {
       tableAllocation: [{ tableId: 1, tableCode: 'A1', allocatedSeats: 2 }],
     };
 
+    const mockAvailability = {
+      slotId: 1,
+      partySize: 2,
+      available: true,
+      tableAllocation: [
+        { tableId: 1, tableCode: 'A1', allocatedSeats: 2 },
+      ],
+    };
+
     fetchMock
       .mockResolvedValueOnce(mockResponse({ status: 200, body: mockSlots }))
+      .mockResolvedValueOnce(mockResponse({ status: 200, body: mockAvailability }))
       .mockResolvedValueOnce(mockResponse({ status: 201, body: mockReservation }));
 
-    renderPage(<ReservationPage />);
+    renderPage(<ReservationPage loggedIn={true} />);
 
     await user.click(screen.getByRole('button', { name: todayKey() }));
     await user.click(await screen.findByRole('button', { name: /12:00.*13:00/ }));
     await user.click(screen.getByRole('button', { name: 'Add one guest' }));
-    await user.click(screen.getByRole('button', { name: 'Check & Reserve' }));
+    await user.click(screen.getByRole('button', { name: 'Check availability' }));
+
+    expect(
+      await screen.findByText('Table available for 2 guests')
+    ).toBeInTheDocument();
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Reserve' })
+    );
 
     expect(await screen.findByRole('heading', { name: 'Reservation confirmed!' })).toBeInTheDocument();
     expect(screen.getByText('#123')).toBeInTheDocument();

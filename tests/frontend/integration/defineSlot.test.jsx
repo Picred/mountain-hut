@@ -137,19 +137,78 @@ describe('Authentication flow', () => {
     expect(calls('DELETE', '/api/sessions/current')).toHaveLength(1);
   });
 
-  it('sends a logged out user to the login and then back to the reservation page', async () => {
+  it('allows a guest to check availability, then log in and return to the reservation page', async () => {
     const user = userEvent.setup();
+
     mockServer({
       'GET /api/sessions/current': { status: 401 },
       'POST /api/sessions': { status: 201, body: ANNA },
-      'GET /api/slots': { body: [] },
+      'GET /api/slots': {
+        body: [
+          {
+            slotId: 1,
+            startTime: '12:00',
+            endTime: '13:00',
+            bookingAllowed: true,
+          },
+        ],
+      },
+      'GET /api/slots/1/availability': {
+        body: {
+          slotId: 1,
+          partySize: 1,
+          available: true,
+          tableAllocation: [
+            { tableId: 1, tableCode: 'T1', allocatedSeats: 1 },
+          ],
+        },
+      },
     });
+
     renderApp('/reservations');
 
-    expect(await screen.findByRole('button', { name: 'Log in' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Reserve your table' })
+    ).toBeInTheDocument();
+
+    await expectLoggedOut();
+
+    const today = new Date();
+    const dateKey = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    await user.click(screen.getByRole('button', { name: dateKey }));
+
+    await user.click(
+      await screen.findByRole('button', { name: /12:00.*13:00/ })
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Check availability' })
+    );
+
+    expect(
+      await screen.findByText('Table available for 1 guest')
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Log in to reserve' })
+    );
+
+    expect(
+      await screen.findByRole('button', { name: 'Log in' })
+    ).toBeInTheDocument();
+
     await logIn(user);
 
-    expect(await screen.findByRole('heading', { name: 'Reserve your table' })).toBeInTheDocument();
+    await expectLoggedInAs('Anna Winden');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Reserve your table' })
+    ).toBeInTheDocument();
   });
 });
 
@@ -554,7 +613,10 @@ describe('Capacity management page', () => {
       await user.type(card.getByPlaceholderText('e.g. 4'), '4');
       await user.click(card.getByRole('button', { name: 'Create Table' }));
 
-      expect(await card.findByText('A table with this code already exists.')).toBeInTheDocument();
+      expect(
+        await card.findByText('A table with this code and number of seats already exists.')
+      ).toBeInTheDocument();
+
       expect(card.getByPlaceholderText('e.g. T1')).toBeInTheDocument(); // the form stays open
     });
 
