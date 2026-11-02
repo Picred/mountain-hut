@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { makeReservation } from '../models/dao/reservationDAO.js';
+import { sendBookingConfirmation } from '../services/confirmation.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import UnauthorizedError from '../models/errors/UnauthorizedError.js';
 
@@ -36,7 +37,9 @@ router.post('/', async (req, res) => {
         userId,
         partySize
     );
-
+    // no await!!
+    sendBookingConfirmation(reservation.reservationId);
+    
     return res.status(201).json(reservation);
 });
 

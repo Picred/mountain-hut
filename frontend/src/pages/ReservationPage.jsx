@@ -1,7 +1,6 @@
-
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
-import { listAvailableSlots, createReservation } from "../api/reservation_api";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router";
+import { listAvailableSlots, checkAvailability, createReservation } from "../api/reservation_api";
 import Calendar from "../components/Calendar";
 
 // Format a local date as YYYY-MM-DD without converting it to UTC.
@@ -13,20 +12,33 @@ const dateKey = (date) => {
 };
 
 /**
- * Reservation flow for authenticated hikers.
- * Users choose a date, a time slot and a party size, then submit a booking.
+ * Availability check and reservation flow.
+ * Anyone can choose a date, a time slot and a party size and check the
+ * availability; only logged-in hikers can then submit the booking, the
+ * others are asked to log in.
  * The backend validates availability and returns the assigned tables.
  */
-export const ReservationPage = () => {
+export const ReservationPage = ({ loggedIn }) => {
   // Booking form selections.
-  const [date, setDate] = useState("");
+  // A visitor who logs in from this page comes back with the same selection.
+  const location = useLocation();
+  const savedSelection = location.state?.reservation;
+
+  const [date, setDate] = useState(savedSelection?.date || "");
   const [selectedSlotId, setSelectedSlotId] = useState("");
-  const [partySize, setPartySize] = useState(1);
+  const [partySize, setPartySize] = useState(savedSelection?.partySize || 1);
+
+  // Slot to select again once the slots of the restored date are loaded.
+  const pendingSlotId = useRef(savedSelection?.slotId || null);
 
   // Slot-fetching state, updated whenever the selected date changes.
   const [slots, setSlots] = useState([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
   const [fetchError, setFetchError] = useState(null);
+
+  // Result of the last availability check.
+  const [availability, setAvailability] = useState(null);
+  const [isChecking, setIsChecking] = useState(false);
 
   // Reservation submission state and successful booking details.
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,6 +67,26 @@ export const ReservationPage = () => {
 
         if (!isCancelled) {
           setSlots(data || []);
+
+          // Restore the slot chosen before the login and run the check again.
+          const restoredId = pendingSlotId.current;
+          pendingSlotId.current = null;
+
+          if (
+            restoredId &&
+            (data || []).some((slot) => String(slot.slotId) === String(restoredId))
+          ) {
+            setSelectedSlotId(String(restoredId));
+            // Consume the saved selection so a page refresh does not restore it again.
+            navigate(location.pathname, { replace: true, state: null });
+            try {
+              setAvailability(
+                await checkAvailability(restoredId, savedSelection.partySize)
+              );
+            } catch {
+              // The user can still press "Check availability" manually.
+            }
+          }
         }
       } catch (err) {
         if (!isCancelled) {
@@ -101,10 +133,40 @@ export const ReservationPage = () => {
     setSubmitError(null);
   };
 
+  // Show the result only while it matches the current selection: changing
+  // the slot or the guests hides it, so "Reserve" always refers to what was checked.
+  const currentAvailability =
+    availability &&
+    availability.slotId === Number(selectedSlotId) &&
+    availability.partySize === partySize
+      ? availability
+      : null;
+
+  // Check whether the selected slot has room for the party. No login needed.
+  const handleCheck = async (e) => {
+    e.preventDefault();
+    setSubmitError(null);
+
+    if (!date || !selectedSlotId || !partySize) {
+      setSubmitError("Please complete all booking details.");
+      return;
+    }
+
+    setIsChecking(true);
+
+    try {
+      setAvailability(await checkAvailability(selectedSlotId, partySize));
+    } catch (err) {
+      setAvailability(null);
+      setSubmitError(err.message || "Unable to check availability.");
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
   // Submit the selected slot and party size; the backend decides whether
   // enough seats are available and which tables to allocate.
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleReserve = async () => {
     setSubmitError(null);
 
     if (!date || !selectedSlotId || !partySize) {
@@ -140,6 +202,14 @@ export const ReservationPage = () => {
     }
   };
 
+  // Seating of the checked party: "T1 (2 seats) + T3 (3 seats) + T5 (1 seat)".
+  const seatingLabel = currentAvailability?.tableAllocation
+    ?.map(
+      (table) =>
+        `${table.tableCode} (${table.allocatedSeats} ${table.allocatedSeats === 1 ? "seat" : "seats"})`
+    )
+    .join(" + ");
+
   // Format the selected calendar date for the slot section heading.
   const formattedDate = date
     ? new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
@@ -166,7 +236,7 @@ export const ReservationPage = () => {
             </h1>
 
             <p className="mt-3 text-sm text-slate-400">
-              Choose your preferred date, time and number of guests.
+              Choose your preferred date, time and number of guests, then check availability.
             </p>
           </div>
 
@@ -297,7 +367,7 @@ export const ReservationPage = () => {
           </div>
         ) : (
           <form
-            onSubmit={handleSubmit}
+            onSubmit={handleCheck}
             className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2"
           >
             {/* Left: Calendar */}
@@ -486,21 +556,122 @@ export const ReservationPage = () => {
                 </div>
               )}
 
-              {/* Prevent submission until a date and slot are selected or while loading. */}
+              {/* The check is available to everyone; it needs a date and a slot. */}
               <button
                 type="submit"
                 disabled={
                   !date ||
                   !selectedSlotId ||
-                  isSubmitting ||
+                  isChecking ||
                   isLoadingSlots
                 }
-                className="w-full cursor-pointer rounded-xl bg-sky-300 px-5 py-3.5 font-semibold text-slate-950 shadow-lg shadow-sky-300/10 transition-colors hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+                className={`w-full cursor-pointer rounded-xl px-5 py-3.5 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  currentAvailability?.available
+                    ? "border border-sky-300/40 bg-sky-300/10 text-sky-300 hover:bg-sky-300/20"
+                    : "bg-sky-300 text-slate-950 shadow-lg shadow-sky-300/10 hover:bg-sky-200"
+                }`}
               >
-                {isSubmitting
-                  ? "Checking reservation..."
-                  : "Check & Reserve"}
+                {isChecking ? "Checking..." : "Check availability"}
               </button>
+
+              {/* Result of the check: seating details, or no availability. */}
+              {currentAvailability && (
+                currentAvailability.available ? (
+                  <div
+                    role="status"
+                    className="flex items-start gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mt-0.5 shrink-0 text-emerald-400"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="m8 12 3 3 5-6" />
+                    </svg>
+
+                    <div className="min-w-0">
+                      <p className="font-semibold text-emerald-300">
+                        Table available for {partySize}{" "}
+                        {partySize === 1 ? "guest" : "guests"}
+                      </p>
+                      <p className="mt-1 break-words text-slate-300">
+                        Seating: {seatingLabel}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    role="status"
+                    className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mt-0.5 shrink-0 text-amber-400"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 8v4" />
+                      <path d="M12 16h.01" />
+                    </svg>
+
+                    <div className="min-w-0">
+                      <p className="font-semibold text-amber-300">
+                        Not available
+                      </p>
+                      <p className="mt-1 text-slate-300">
+                        There are not enough free seats for {partySize}{" "}
+                        {partySize === 1 ? "guest" : "guests"} in this time slot.
+                      </p>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {/* Only hikers can reserve: the others are asked to log in first. */}
+              {currentAvailability?.available && (
+                loggedIn ? (
+                  <button
+                    type="button"
+                    onClick={handleReserve}
+                    disabled={isSubmitting}
+                    className="w-full cursor-pointer rounded-xl bg-sky-300 px-5 py-3.5 font-semibold text-slate-950 shadow-lg shadow-sky-300/10 transition-colors hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {isSubmitting ? "Reserving..." : "Reserve"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate("/login", {
+                        state: {
+                          from: "/reservations",
+                          reservation: { date, slotId: selectedSlotId, partySize },
+                        },
+                      })
+                    }
+                    className="w-full cursor-pointer rounded-xl bg-sky-300 px-5 py-3.5 font-semibold text-slate-950 shadow-lg shadow-sky-300/10 transition-colors hover:bg-sky-200"
+                  >
+                    Log in to reserve
+                  </button>
+                )
+              )}
             </div>
           </form>
         )}

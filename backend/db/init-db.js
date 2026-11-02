@@ -20,11 +20,14 @@ const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
 const DEMO_PASSWORD = 'password';
 
 const USERS = [
-  { id: 1, name: 'Julia White',  email: 'warden@mountainhut.test',   phone: '0165123456',    role: 'warden' },
-  { id: 2, name: 'Carl Smith',  email: 'employee@mountainhut.test', phone: '3331234567',    role: 'employee' },
+  { id: 1, name: 'Julia White', email: 'warden@mountainhut.test', phone: '0165123456', role: 'warden' },
+  { id: 2, name: 'Carl Smith', email: 'employee@mountainhut.test', phone: '3331234567', role: 'employee' },
   { id: 3, name: 'Anna Winden',     email: 'anna@mountainhut.test',     phone: '+393401234567', role: 'hiker' },
   { id: 4, name: 'Bruno Ryn',    email: 'bruno@mountainhut.test',    phone: '0112345678',    role: 'hiker' },
   { id: 5, name: 'Edward Coles',    email: 'edward@mountainhut.test',    phone: null,            role: 'hiker' },
+  { id: 6, name: 'Niccolo Cristoforetti', email: 's359369@studenti.polito.it', phone: '+393401234567', role: 'hiker' },
+  { id: 7, name: 'Letizia Pontarolo', email: 's352496@studenti.polito.it', phone: '0112345678', role: 'hiker' },
+  { id: 8, name: 'Caterina Maccarini', email: 's336160@studenti.polito.it', phone: null, role: 'hiker' },
 ];
 
 const TABLES = [
@@ -36,11 +39,26 @@ const TABLES = [
 ];
 
 const SLOTS = [
-  { id: 1, start: at(1, 11),     end: at(1, 12) },
-  { id: 2, start: at(1, 12),     end: at(1, 13) },
+  { id: 1, start: at(1, 11), end: at(1, 12) },
+  { id: 2, start: at(1, 12), end: at(1, 13) },
   { id: 3, start: at(1, 17, 30), end: at(1, 19) },
-  { id: 4, start: at(2, 11),     end: at(2, 12) },
-  { id: 5, start: at(2, 12),     end: at(2, 13) },
+  { id: 4, start: at(2, 11), end: at(2, 12) },
+  { id: 5, start: at(2, 12), end: at(2, 13) },
+  { id: 6,  start: at(8, 11),     end: at(8, 12) },
+  { id: 7,  start: at(8, 12),     end: at(8, 13) },
+  { id: 8,  start: at(8, 17, 30), end: at(8, 19) },
+  { id: 9,  start: at(9, 11),     end: at(9, 12) },
+  { id: 10, start: at(9, 12),     end: at(9, 13) },
+  { id: 11, start: at(9, 17, 30), end: at(9, 19) },
+  { id: 12, start: at(10, 11),     end: at(10, 12) },
+  { id: 13, start: at(10, 12),     end: at(10, 13) },
+  { id: 14, start: at(10, 17, 30), end: at(10, 19) },
+  { id: 15, start: at(11, 11),     end: at(11, 12) },
+  { id: 16, start: at(11, 12),     end: at(11, 13) },
+  { id: 17, start: at(11, 17, 30), end: at(11, 19) },
+  { id: 18, start: at(12, 11),     end: at(12, 12) },
+  { id: 19, start: at(12, 12),     end: at(12, 13) },
+  { id: 20, start: at(12, 17, 30), end: at(12, 19) },
 ];
 
 const SLOT_TABLES = {
@@ -48,6 +66,21 @@ const SLOT_TABLES = {
   2: [1, 2, 3, 4, 5],
   3: [1, 2, 3, 4, 5],
   4: [1, 3],
+  6:  [1, 2, 3, 5],
+  7:  [1, 2, 3, 4, 5],
+  8:  [1, 4, 5],
+  9:  [1, 2, 4, 5],
+  10: [1, 2, 3, 4],
+  11: [1, 2, 3, 4, 5],
+  12: [1, 3, 4],
+  13: [1, 2, 4, 5],
+  14: [2, 3, 4, 5],
+  15: [1, 2, 3, 4, 5],
+  16: [2, 3, 4],
+  17: [3, 4, 5],
+  18: [2, 3, 4, 5],
+  19: [2, 3, 4, 5],
+  20: [1, 3, 4, 5],
 };
 
 const DISHES = [
