@@ -27,14 +27,14 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
 
             {/* CTA Principale: Prenota un tavolo */}
             {user?.role !== "employee" && (
-            <button
-              className="btn btn-sm bg-sky-300 hover:bg-sky-400 border-sky-300 hover:border-sky-400 text-slate-950 font-semibold shadow-md hover:shadow-lg transition-all gap-1.5"
-              onClick={() => navigate("/reservations")}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-plus-2 preview-icon"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M10 15h4" /><path d="M12 13v4" /></svg>
-              <span className="hidden sm:inline">Reserve a table</span>
-              <span className="sm:hidden">Book</span>
-            </button>
+              <button
+                className="btn btn-sm bg-sky-300 hover:bg-sky-400 border-sky-300 hover:border-sky-400 text-slate-950 font-semibold shadow-md hover:shadow-lg transition-all gap-1.5"
+                onClick={() => navigate("/reservations")}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-plus-2 preview-icon"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M10 15h4" /><path d="M12 13v4" /></svg>
+                <span className="hidden sm:inline">Reserve a table</span>
+                <span className="sm:hidden">Book</span>
+              </button>
             )}
 
             {/* Pulsante Login secondario */}
@@ -77,6 +77,20 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
                     <li className="menu-title text-neutral-400 text-[11px] px-3 py-1 font-semibold uppercase tracking-wider border-b border-neutral-700 mb-1">
                       My Account
                     </li>
+
+                    {user?.role === "employee" && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => navigate("/capacity")}
+                          className="text-slate-200 hover:text-sky-300"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 2v4" /><path d="M16 2v4" /><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M3 10h18" /><path d="M17.5 15.5 16 17l1.5 1.5" /><path d="M20 17h-4" /></svg>
+                          <span>Capacity Management</span>
+                        </button>
+                      </li>
+                    )}
+
                     <li>
                       <LogoutButton onLogout={onLogout} />
                     </li>
