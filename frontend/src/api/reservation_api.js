@@ -46,7 +46,7 @@ export const checkAvailability = async (slotId, partySize) => {
     return data;
 };
 
-export const createReservation = async (slotId, partySize) => {
+export const createReservation = async (slotId, partySize, requirements = []) => {
     const response = await fetch(`${BASE_URL}/reservations`, {
         method: 'POST',
         headers: {
@@ -56,6 +56,7 @@ export const createReservation = async (slotId, partySize) => {
         body: JSON.stringify({
             slotId: Number(slotId),
             partySize: Number(partySize),
+            requirements,
         }),
     });
 

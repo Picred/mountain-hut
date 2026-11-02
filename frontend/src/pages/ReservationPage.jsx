@@ -28,6 +28,22 @@ export const ReservationPage = ({ loggedIn }) => {
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [partySize, setPartySize] = useState(savedSelection?.partySize || 1);
 
+  // Dietary requirements for the party.
+  const [requirements, setRequirements] = useState(
+    savedSelection?.requirements || []
+  );
+
+  // Controls the visibility of the requirement form.
+  const [showRequirementForm, setShowRequirementForm] = useState(false);
+
+  // Fields for a new requirement.
+  const [requirementPeopleCount, setRequirementPeopleCount] = useState(1);
+  const [requirementDescription, setRequirementDescription] = useState("");
+  const [requirementIsAllergy, setRequirementIsAllergy] = useState(false);
+
+  // Validation error for the requirement form.
+  const [requirementError, setRequirementError] = useState(null);
+
   // Slot to select again once the slots of the restored date are loaded.
   const pendingSlotId = useRef(savedSelection?.slotId || null);
 
@@ -48,6 +64,81 @@ export const ReservationPage = ({ loggedIn }) => {
 
   const navigate = useNavigate();
   const todayStr = dateKey(new Date());
+
+  // Reset the fields used to create a new requirement.
+  const resetRequirementForm = () => {
+    setRequirementPeopleCount(1);
+    setRequirementDescription("");
+    setRequirementIsAllergy(false);
+    setRequirementError(null);
+  };
+
+  // Clear all requirements when booking details change.
+  const resetRequirements = () => {
+    setRequirements([]);
+    resetRequirementForm();
+    setShowRequirementForm(false);
+  };
+
+  // Open or close the requirement form.
+  const handleToggleRequirementForm = () => {
+    if (showRequirementForm) {
+      resetRequirementForm();
+      setShowRequirementForm(false);
+      return;
+    }
+
+    setRequirementError(null);
+    setShowRequirementForm(true);
+  };
+
+  // Add a dietary requirement to the current reservation.
+  const handleAddRequirement = () => {
+    setRequirementError(null);
+
+    const peopleCount = Number(requirementPeopleCount);
+    const description = requirementDescription.trim();
+
+    // Validate the number of people.
+    if (!Number.isInteger(peopleCount) || peopleCount <= 0) {
+      setRequirementError("Please enter a valid number of people.");
+      return;
+    }
+
+    // Validate the description.
+    if (!description) {
+      setRequirementError("Please enter a requirement description.");
+      return;
+    }
+
+    // Count the people already covered by existing requirements.
+    const assignedPeople = requirements.reduce(
+      (total, requirement) => total + requirement.peopleCount,
+      0
+    );
+
+    // The total cannot exceed the number of guests.
+    if (assignedPeople + peopleCount > partySize) {
+      setRequirementError(
+        "You cannot add requirements for more people than the total number of guests."
+      );
+      return;
+    }
+
+    // Add the new requirement to the list.
+    setRequirements((current) => [
+      ...current,
+      {
+        peopleCount,
+        description,
+        isAllergy: requirementIsAllergy,
+      },
+    ]);
+
+    // Close the form and clear its fields.
+    resetRequirementForm();
+    setShowRequirementForm(false);
+  };
 
   // Fetch the slots for the selected date and clear any previous slot selection.
   useEffect(() => {
@@ -125,20 +216,26 @@ export const ReservationPage = ({ loggedIn }) => {
   };
 
   // Reject past dates and reset the selected slot and any submission error.
+  // Reset availability and requirements when the selected date changes.
   const handleDateSelect = (newDate) => {
     if (newDate < dateKey(new Date())) return;
 
+    // Do nothing if the user selects the same date.
+    if (newDate === date) return;
+
     setDate(newDate);
     setSelectedSlotId("");
+    setAvailability(null);
     setSubmitError(null);
+    resetRequirements();
   };
 
   // Show the result only while it matches the current selection: changing
   // the slot or the guests hides it, so "Reserve" always refers to what was checked.
   const currentAvailability =
     availability &&
-    availability.slotId === Number(selectedSlotId) &&
-    availability.partySize === partySize
+      availability.slotId === Number(selectedSlotId) &&
+      availability.partySize === partySize
       ? availability
       : null;
 
@@ -177,7 +274,7 @@ export const ReservationPage = ({ loggedIn }) => {
     const selectedSlot = slots.find(
       (slot) => String(slot.slotId) === String(selectedSlotId)
     );
-    
+
     if (!selectedSlot || selectedSlot.bookingAllowed !== true) {
       setSubmitError("This time slot is no longer available for booking.");
       return
@@ -188,7 +285,8 @@ export const ReservationPage = ({ loggedIn }) => {
     try {
       const result = await createReservation(
         selectedSlotId,
-        partySize
+        partySize,
+        requirements
       );
 
       setReservationDetails(result);
@@ -355,6 +453,43 @@ export const ReservationPage = ({ loggedIn }) => {
                   </p>
                 </div>
               )}
+
+              {/* Display dietary requirements included in the reservation. */}
+              {reservationDetails.requirements?.length > 0 && (
+                <div className="border-t border-white/10 pt-3">
+                  <p className="mb-3 text-slate-400">
+                    Party requirements
+                  </p>
+
+                  <div className="space-y-3">
+                    {reservationDetails.requirements.map((requirement, index) => (
+                      <div key={index}>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold text-slate-200">
+                            Requirement {index + 1}
+                          </p>
+
+                          <span className="text-sky-300">
+                            {requirement.peopleCount}{" "}
+                            {requirement.peopleCount === 1 ? "person" : "people"}
+                          </span>
+                        </div>
+
+                        <p className="mt-1 whitespace-pre-wrap break-words text-slate-300">
+                          {requirement.description}
+                        </p>
+
+                        {requirement.isAllergy && (
+                          <p className="mt-2 flex items-center gap-2 text-amber-300">
+                            <span aria-hidden="true">⚠</span>
+                            Allergy
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
@@ -441,19 +576,22 @@ export const ReservationPage = ({ loggedIn }) => {
                               disabled={!isBookable}
                               onClick={() => {
                                 if (!isBookable) return;
-                                setSelectedSlotId(
-                                  String(slot.slotId)
-                                );
+
+                                // Do nothing if the selected slot has not changed.
+                                if (String(selectedSlotId) === String(slot.slotId)) return;
+
+                                setSelectedSlotId(String(slot.slotId));
+                                setAvailability(null);
                                 setSubmitError(null);
+                                resetRequirements();
                               }}
                               aria-pressed={isSelected}
-                              className={`flex min-h-16 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
-                                !isBookable
-                                  ? "cursor-not-allowed border-white/5 bg-[#090f19]/50 text-slate-500 opacity-50"
-                                  : isSelected
-                                    ? "cursor-pointer border-sky-300 bg-sky-300/10 text-sky-200"
-                                    : "cursor-pointer border-white/10 bg-[#090f19] text-slate-200 hover:border-sky-300/40 hover:bg-white/5"
-                               }`}
+                              className={`flex min-h-16 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${!isBookable
+                                ? "cursor-not-allowed border-white/5 bg-[#090f19]/50 text-slate-500 opacity-50"
+                                : isSelected
+                                  ? "cursor-pointer border-sky-300 bg-sky-300/10 text-sky-200"
+                                  : "cursor-pointer border-white/10 bg-[#090f19] text-slate-200 hover:border-sky-300/40 hover:bg-white/5"
+                                }`}
                             >
                               <span className="text-sm font-medium">
                                 {formatTime(slot.startTime)}
@@ -513,11 +651,14 @@ export const ReservationPage = ({ loggedIn }) => {
                     <div className="flex items-center gap-4">
                       <button
                         type="button"
-                        onClick={() =>
-                          setPartySize((current) =>
-                            Math.max(1, current - 1)
-                          )
-                        }
+                        onClick={() => {
+                          if (partySize <= 1) return;
+
+                          setPartySize((current) => current - 1);
+                          setAvailability(null);
+                          setSubmitError(null);
+                          resetRequirements();
+                        }}
                         disabled={partySize <= 1}
                         aria-label="Remove one guest"
                         className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/15 text-xl text-sky-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
@@ -531,11 +672,12 @@ export const ReservationPage = ({ loggedIn }) => {
 
                       <button
                         type="button"
-                        onClick={() =>
-                          setPartySize((current) =>
-                            current + 1
-                          )
-                        }
+                        onClick={() => {
+                          setPartySize((current) => current + 1);
+                          setAvailability(null);
+                          setSubmitError(null);
+                          resetRequirements();
+                        }}
                         aria-label="Add one guest"
                         className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/15 text-xl text-sky-300 transition-colors hover:bg-white/10"
                       >
@@ -565,11 +707,10 @@ export const ReservationPage = ({ loggedIn }) => {
                   isChecking ||
                   isLoadingSlots
                 }
-                className={`w-full cursor-pointer rounded-xl px-5 py-3.5 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                  currentAvailability?.available
-                    ? "border border-sky-300/40 bg-sky-300/10 text-sky-300 hover:bg-sky-300/20"
-                    : "bg-sky-300 text-slate-950 shadow-lg shadow-sky-300/10 hover:bg-sky-200"
-                }`}
+                className={`w-full cursor-pointer rounded-xl px-5 py-3.5 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${currentAvailability?.available
+                  ? "border border-sky-300/40 bg-sky-300/10 text-sky-300 hover:bg-sky-300/20"
+                  : "bg-sky-300 text-slate-950 shadow-lg shadow-sky-300/10 hover:bg-sky-200"
+                  }`}
               >
                 {isChecking ? "Checking..." : "Check availability"}
               </button>
@@ -644,6 +785,151 @@ export const ReservationPage = ({ loggedIn }) => {
                 )
               )}
 
+              {/* Party requirements are available only to authenticated hikers
+    after a successful availability check. */}
+              {loggedIn && currentAvailability?.available && (
+                <div>
+                  <div className="mb-4 flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-300 font-bold text-slate-950">
+                      4
+                    </span>
+                    <h2 className="text-lg font-semibold text-white">
+                      Party requirements
+                    </h2>
+                  </div>
+
+                  <section className="rounded-2xl border border-white/10 bg-[#0e1622]/90 p-5 shadow-xl sm:p-6">
+                    {/* List of requirements already added. */}
+                    {requirements.length > 0 && (
+                      <div className="mb-5 space-y-3">
+                        {requirements.map((requirement, index) => (
+                          <div
+                            key={index}
+                            className="rounded-xl border border-white/10 bg-[#090f19] p-4"
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <p className="text-sm font-semibold text-white">
+                                Requirement {index + 1}
+                              </p>
+
+                              <span className="text-xs font-medium text-sky-300">
+                                {requirement.peopleCount}{" "}
+                                {requirement.peopleCount === 1 ? "person" : "people"}
+                              </span>
+                            </div>
+
+                            <p className="whitespace-pre-wrap break-words text-sm text-slate-300">
+                              {requirement.description}
+                            </p>
+
+                            {requirement.isAllergy && (
+                              <p className="mt-3 flex items-center gap-2 text-sm text-amber-300">
+                                <span aria-hidden="true">⚠</span>
+                                Allergy
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Requirement validation error. */}
+                    {requirementError && (
+                      <div
+                        role="alert"
+                        className="mb-4 rounded-xl border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-300"
+                      >
+                        {requirementError}
+                      </div>
+                    )}
+
+                    {/* Button to open or cancel the requirement form. */}
+                    <button
+                      type="button"
+                      onClick={handleToggleRequirementForm}
+                      className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-sky-300/40 bg-sky-300/10 px-5 py-3 font-semibold text-sky-300 transition-colors hover:bg-sky-300/20"
+                    >
+                      {showRequirementForm ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                          Cancel
+                        </>
+                      ) : (
+                        "+ Add requirement"
+                      )}
+                    </button>
+
+                    {/* Form for a new requirement. */}
+                    {showRequirementForm && (
+                      <div className="mt-5 space-y-4 rounded-xl border border-white/10 bg-[#090f19] p-4">
+                        <div>
+                          <label
+                            htmlFor="requirement-people-count"
+                            className="mb-2 block text-sm font-medium text-slate-300"
+                          >
+                            Number of people
+                          </label>
+
+                          <input
+                            id="requirement-people-count"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={requirementPeopleCount}
+                            onChange={(e) => {
+                              setRequirementPeopleCount(e.target.value);
+                              setRequirementError(null);
+                            }}
+                            className="w-full rounded-xl border border-white/15 bg-[#0e1622] px-4 py-3 text-sm text-white outline-none focus:border-sky-300"
+                          />
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="requirement-description"
+                            className="mb-2 block text-sm font-medium text-slate-300"
+                          >
+                            Description
+                          </label>
+
+                          <textarea
+                            id="requirement-description"
+                            rows="3"
+                            value={requirementDescription}
+                            onChange={(e) => {
+                              setRequirementDescription(e.target.value);
+                              setRequirementError(null);
+                            }}
+                            placeholder="e.g. Vegan, peanut allergy"
+                            className="w-full resize-y rounded-xl border border-white/15 bg-[#0e1622] px-4 py-3 text-sm text-white outline-none focus:border-sky-300"
+                          />
+                        </div>
+
+                        <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={requirementIsAllergy}
+                            onChange={(e) => setRequirementIsAllergy(e.target.checked)}
+                            className="mt-0.5 h-4 w-4 accent-sky-300"
+                          />
+                          <span>
+                            Contains allergies
+                          </span>
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={handleAddRequirement}
+                          className="w-full cursor-pointer rounded-xl bg-sky-300 px-5 py-3 font-semibold text-slate-950 transition-colors hover:bg-sky-200"
+                        >
+                          + Add requirement
+                        </button>
+                      </div>
+                    )}
+                  </section>
+                </div>
+              )}
+
               {/* Only hikers can reserve: the others are asked to log in first. */}
               {currentAvailability?.available && (
                 loggedIn ? (
@@ -662,7 +948,7 @@ export const ReservationPage = ({ loggedIn }) => {
                       navigate("/login", {
                         state: {
                           from: "/reservations",
-                          reservation: { date, slotId: selectedSlotId, partySize },
+                          reservation: { date, slotId: selectedSlotId, partySize, requirements, },
                         },
                       })
                     }
