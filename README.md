@@ -19,6 +19,19 @@
 - `reservation_table` contains reservation_id, slot_table_id, allocated_seats (number)
 - `reservation_requirements` contains id, reservation_id, people_count (number), description (text), is_allergy (boolean)
 
+### Email confirmation format
+
+Recipient: the hiker who made the reservation (email of the user)
+
+Subject: Mountain Hut - Booking confirmation #9
+
+Content (plain text and HTML):
+- booking reference: `#` followed by `reservation_id`
+- date and time slot
+- party size
+- party requirements (allergies, diets): None if there are none
+- name of the hiker who made the reservation
+
 ### APIs
 
 #### Authentication
@@ -158,4 +171,185 @@ Creates a confirmed reservation for the authenticated user.
   - `409 Conflict` — `BOOKING_TOO_LATE`
   - `409 Conflict` — `NO_AVAILABILITY`
   - `409 Conflict` — `ALREADY_BOOKED`
+
+
+
+#### MH-02 - Define Slot Capacity
+
+##### GET `/api/slots/capacity?from=YYYY-MM-DD&to=YYYY-MM-DD`
+
+Retrieves all the slots ordered by start time.
+
+- **Authentication:** required (role `employee`).
+- **Query parameters:** `from` and `to` (both optional and included, format: `YYYY-MM-DD`). They are compared with the slot start date in the mountain hut's local time. For a single day use the same value for both.
+- **Response:** `200 OK` — an array of slots containing:
+  - `slotId`
+  - `startAt`
+  - `endAt`
+  - `hasTables`
+  - `totalSeats`
+  - `tables` (an array of `tableId`, `code`, `seats`)
+
+```json
+[
+  {
+    "slotId": 1,
+    "startAt": "2026-11-02T11:00:00.000Z",
+    "endAt": "2026-11-02T12:00:00.000Z",
+    "hasTables": true,
+    "totalSeats": 8,
+    "tables": [
+      { "tableId": 1, "code": "T1", "seats": 4 },
+      { "tableId": 2, "code": "T2", "seats": 4 }
+    ]
+  },
+  {
+    "slotId": 2,
+    "startAt": "2026-11-02T12:00:00.000Z",
+    "endAt": "2026-11-02T13:00:00.000Z",
+    "hasTables": false,
+    "totalSeats": 0,
+    "tables": []
+  }
+]
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_DATE`
+  - `400 Bad Request` — `INVALID_DATE_RANGE` (`from` after `to`)
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+
+##### POST `/api/slots`
+
+Creates a slot without tables.
+
+- **Authentication:** required (role `employee`).
+- **Request body:** `startAt` and `endAt` are ISO 8601 date-times with timezone, they are saved in UTC.
+
+```json
+{
+  "startAt": "2026-11-02T12:00:00Z",
+  "endAt": "2026-11-02T13:00:00Z"
+}
+```
+
+- **Response:** `201 Created`
+
+```json
+{
+  "slotId": 2,
+  "startAt": "2026-11-02T12:00:00.000Z",
+  "endAt": "2026-11-02T13:00:00.000Z",
+  "hasTables": false,
+  "totalSeats": 0,
+  "tables": []
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT`
+  - `400 Bad Request` — `INVALID_TIME_RANGE` (`endAt` not after `startAt`)
+  - `400 Bad Request` — `SLOT_IN_THE_PAST`
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `409 Conflict` — `SLOT_OVERLAP`
+
+##### POST `/api/slots/:id/tables`
+
+Adds tables of the catalog to a slot.
+
+- **Authentication:** required (role `employee`).
+- **Request body:**
+
+```json
+{
+  "tableIds": [1, 2, 3]
+}
+```
+
+- **Response:** `201 Created` — the slot with all its tables
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT` (invalid slot id, or `tableIds` is not a non-empty array of positive integers)
+  - `400 Bad Request` — `DUPLICATE_TABLE_CODE` (two selected tables have the same code)
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `404 Not Found` — `SLOT_NOT_FOUND`
+  - `404 Not Found` — `TABLE_NOT_FOUND`
+  - `409 Conflict` — `SLOT_HAS_RESERVATIONS`
+  - `409 Conflict` — `TABLE_CODE_ALREADY_IN_SLOT` (the slot already has a table with the same code, or the same table)
+
+##### POST `/api/slots/:id/copy-tables`
+
+Copies the tables of another slot into this slot.
+
+- **Authentication:** required (role `employee`).
+- **Request body:**
+
+```json
+{
+  "fromSlotId": 1
+}
+```
+
+- **Response:** `201 Created` — the destination slot with all its tables
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT`
+  - `400 Bad Request` — `SAME_SLOT`
+  - `400 Bad Request` — `NO_TABLES_TO_COPY` (the source slot has no tables)
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `404 Not Found` — `SLOT_NOT_FOUND` (destination)
+  - `404 Not Found` — `SOURCE_SLOT_NOT_FOUND`
+  - `409 Conflict` — `SLOT_HAS_RESERVATIONS`
+  - `409 Conflict` — `TABLE_CODE_ALREADY_IN_SLOT`
+
+##### GET `/api/tables`
+
+Retrieves the catalog of table types.
+
+- **Authentication:** required (role `employee`).
+- **Response:** `200 OK` — an array of tables ordered by code and seats, containing:
+  - `tableId`
+  - `code`
+  - `seats`
+- **Errors:**
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+
+##### POST `/api/tables`
+
+Adds a new table type to the catalog.
+
+- **Authentication:** required (role `employee`).
+- **Request body:** `code` is a non-empty string of at most 20 characters, `seats` an integer between 1 and 100.
+
+```json
+{
+  "code": "T1",
+  "seats": 6
+}
+```
+
+- **Response:** `201 Created`
+
+```json
+{
+  "tableId": 8,
+  "code": "T1",
+  "seats": 6
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT`
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `409 Conflict` — `TABLE_ALREADY_EXISTS` (same code and seats already in the catalog)
+
+
+
+#### MH-03 - Receive Confirmation
+
+No new API: after a successful `POST /api/reservations`, a confirmation email is sent to the hiker who made the reservation.
 
