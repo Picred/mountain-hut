@@ -151,3 +151,6 @@ vite.config.ts.timestamp-*
 #database
 *.sqlite
 *.sqlite-journal
+
+#nodemailer
+.env
