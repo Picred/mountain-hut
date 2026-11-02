@@ -21,6 +21,31 @@ export const listAvailableSlots = async (date) => {
     return await response.json();
 };
 
+// Public check: no login is needed.
+export const checkAvailability = async (slotId, partySize) => {
+    const response = await fetch(
+        `${BASE_URL}/slots/${Number(slotId)}/availability?partySize=${Number(partySize)}`,
+        { credentials: "include" }
+    );
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new Error('Selected time slot was not found.');
+        }
+
+        if (response.status === 400) {
+            throw new Error('Invalid availability request.');
+        }
+
+        throw new Error('Server error while checking availability.');
+    }
+
+    // { slotId, partySize, available, tableAllocation: [{ tableId, tableCode, allocatedSeats }] }
+    return data;
+};
+
 export const createReservation = async (slotId, partySize) => {
     const response = await fetch(`${BASE_URL}/reservations`, {
         method: 'POST',

@@ -60,7 +60,14 @@ export const App = () => {
       setLoggedIn(true);
       setUser(loggedUser);
       setMessage({ msg: "Logged in successfully!", type: "success" });
-      navigate(location.state?.from || "/", { replace: true }); // Goes back to the homepage after the login
+      // Goes back to the page the user came from (the homepage by default),
+      // keeping the booking selection made before the login, if any.
+      navigate(location.state?.from || "/", {
+        replace: true,
+        state: location.state?.reservation
+          ? { reservation: location.state.reservation }
+          : undefined,
+      });
     } catch (err) {
       throw new Error(
         err.message || "Invalid email or password. Please try again."
@@ -147,16 +154,12 @@ export const App = () => {
                 <div className="flex items-center justify-center text-slate-300">
                   Checking session...
                 </div>
-              ) : loggedIn && user?.role === 'hiker' ? (
-                <ReservationPage />
-              ) : loggedIn ? (
+              ) : loggedIn && user?.role !== 'hiker' ? (
                 <Navigate to="/" replace />
               ) : (
-                <Navigate
-                  to="/login"
-                  replace
-                  state={{ from: location.pathname }}
-                />
+                // Visitors and hikers: anyone can check the availability,
+                // only logged-in hikers can reserve.
+                <ReservationPage loggedIn={loggedIn} />
               )
             }
           />
