@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 
 /**
  * Unit tests for emailService.js.
@@ -93,5 +93,63 @@ describe('emailService', () => {
     expect(info).toBeDefined();
     expect(info.message).toBeInstanceOf(Buffer);
     expect(info.message.toString()).toContain('another@mountainhut.test');
+  });
+});
+
+/**
+ * With credentials the service connects to an SMTP server: nodemailer is mocked,
+ * so nothing leaves the machine. Each test imports a fresh copy of the service,
+ * since the transporter is created once and then cached.
+ */
+describe('emailService with SMTP credentials', () => {
+  const sendMail = vi.fn();
+  const createTransport = vi.fn(() => ({ sendMail }));
+
+  async function loadService(env) {
+    // empty values are not overwritten by a local backend/.env
+    Object.assign(process.env, { MAIL_HOST: '', MAIL_PORT: '', MAIL_FROM: '', ...env });
+    vi.resetModules();
+    vi.doMock('nodemailer', () => ({ default: { createTransport } }));
+    return (await import('../../../backend/services/emailService.js')).sendEmail;
+  }
+
+  afterEach(() => {
+    vi.doUnmock('nodemailer');
+    vi.clearAllMocks();
+    for (const key of ['MAIL_HOST', 'MAIL_PORT']) delete process.env[key];
+    process.env.MAIL_USER = '';
+    process.env.MAIL_PASS = '';
+  });
+
+  it('sends through Gmail over TLS by default', async () => {
+    sendMail.mockResolvedValue({ messageId: '<1@mountainhut>' });
+    const send = await loadService({ MAIL_USER: 'hut@gmail.com', MAIL_PASS: 'secret' });
+
+    const info = await send(sampleEmail);
+
+    expect(createTransport).toHaveBeenCalledWith(expect.objectContaining({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user: 'hut@gmail.com', pass: 'secret' },
+    }));
+    expect(sendMail).toHaveBeenCalledWith({ from: 'Mountain Hut <hut@gmail.com>', ...sampleEmail });
+    expect(info.messageId).toBe('<1@mountainhut>');
+  });
+
+  it('uses the configured server, with STARTTLS on port 587', async () => {
+    sendMail.mockResolvedValue({ messageId: '<2@mountainhut>' });
+    const send = await loadService({ MAIL_USER: 'hut', MAIL_PASS: 'secret', MAIL_HOST: 'smtp.example.com', MAIL_PORT: '587' });
+
+    await send(sampleEmail);
+
+    expect(createTransport).toHaveBeenCalledWith(expect.objectContaining({ host: 'smtp.example.com', port: 587, secure: false }));
+  });
+
+  it('rejects when the SMTP server refuses the email', async () => {
+    sendMail.mockRejectedValue(new Error('Invalid login'));
+    const send = await loadService({ MAIL_USER: 'hut@gmail.com', MAIL_PASS: 'wrong' });
+
+    await expect(send(sampleEmail)).rejects.toThrow('Invalid login');
   });
 });

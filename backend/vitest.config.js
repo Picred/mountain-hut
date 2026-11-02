@@ -2,10 +2,12 @@ import { defineConfig } from 'vitest/config'
 import { fileURLToPath } from 'node:url'
 
 export default defineConfig({
-  // tests live in ../tests/backend: resolve passport from backend/node_modules, so vi.mock('passport') hits the app's instance
+  // tests live in ../tests/backend: resolve passport and nodemailer from backend/node_modules,
+  // so vi.mock('passport') and vi.mock('nodemailer') hit the app's instances
   resolve: {
     alias: {
-      passport: fileURLToPath(new URL('./node_modules/passport', import.meta.url))
+      passport: fileURLToPath(new URL('./node_modules/passport', import.meta.url)),
+      nodemailer: fileURLToPath(new URL('./node_modules/nodemailer', import.meta.url))
     }
   },
   test: {
