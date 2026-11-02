@@ -22,9 +22,12 @@ const DEMO_PASSWORD = 'password';
 const USERS = [
   { id: 1, name: 'Julia White', email: 'warden@mountainhut.test', phone: '0165123456', role: 'warden' },
   { id: 2, name: 'Carl Smith', email: 'employee@mountainhut.test', phone: '3331234567', role: 'employee' },
-  { id: 3, name: 'Niccolo Cristoforetti', email: 's359369@studenti.polito.it', phone: '+393401234567', role: 'hiker' },
-  { id: 4, name: 'Letizia Pontarolo', email: 's352496@studenti.polito.it', phone: '0112345678', role: 'hiker' },
-  { id: 5, name: 'Caterina Maccarini', email: 's336160@studenti.polito.it', phone: null, role: 'hiker' },
+  { id: 3, name: 'Anna Winden',     email: 'anna@mountainhut.test',     phone: '+393401234567', role: 'hiker' },
+  { id: 4, name: 'Bruno Ryn',    email: 'bruno@mountainhut.test',    phone: '0112345678',    role: 'hiker' },
+  { id: 5, name: 'Edward Coles',    email: 'edward@mountainhut.test',    phone: null,            role: 'hiker' },
+  { id: 6, name: 'Niccolo Cristoforetti', email: 's359369@studenti.polito.it', phone: '+393401234567', role: 'hiker' },
+  { id: 7, name: 'Letizia Pontarolo', email: 's352496@studenti.polito.it', phone: '0112345678', role: 'hiker' },
+  { id: 8, name: 'Caterina Maccarini', email: 's336160@studenti.polito.it', phone: null, role: 'hiker' },
 ];
 
 const TABLES = [
