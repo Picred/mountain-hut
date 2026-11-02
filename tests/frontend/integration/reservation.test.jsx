@@ -36,13 +36,19 @@ const lastCall = (method, path) => server.mock.calls.findLast(([url, opts = {}])
   url.startsWith(`${SERVER_URL}${path}`) && (opts.method ?? 'GET') === method);
 
 // Logged user on the reservation page, with the slots of DATE already loaded
-async function openSlotsOfDate(user, reservationResponse) {
+async function openSlotsOfDate(user, reservationResponse, availabilityResponse) {
   mockServer({
     'GET /api/sessions/current': { body: ANNA },
     'GET /api/slots': { body: SLOTS },
+    'GET /api/slots/2/availability': availabilityResponse,
     'POST /api/reservations': reservationResponse,
   });
-  render(<MemoryRouter initialEntries={['/reservations']}><App /></MemoryRouter>);
+
+  render(
+    <MemoryRouter initialEntries={['/reservations']}>
+      <App />
+    </MemoryRouter>
+  );
 
   await user.click(await screen.findByRole('button', { name: DATE }));
   await screen.findByRole('button', { name: '19:00 – 21:00' });
@@ -63,44 +69,137 @@ afterEach(() => {
 describe('Reservation flow', () => {
   it('books the chosen slot for the chosen party and shows the assigned tables', async () => {
     const user = userEvent.setup();
-    await openSlotsOfDate(user, {
-      status: 201,
-      body: {
-        reservationId: 9,
-        slotId: 2,
-        partySize: 6,
-        status: 'confirmed',
-        tableAllocation: [
-          { tableId: 2, tableCode: 'T2', allocatedSeats: 4 },
-          { tableId: 5, tableCode: 'T5', allocatedSeats: 2 },
-        ],
+
+    const tableAllocation = [
+      { tableId: 2, tableCode: 'T2', allocatedSeats: 4 },
+      { tableId: 5, tableCode: 'T5', allocatedSeats: 2 },
+    ];
+
+    await openSlotsOfDate(
+      user,
+      {
+        status: 201,
+        body: {
+          reservationId: 9,
+          slotId: 2,
+          partySize: 6,
+          status: 'confirmed',
+          tableAllocation,
+        },
       },
+      {
+        status: 200,
+        body: {
+          slotId: 2,
+          partySize: 6,
+          available: true,
+          tableAllocation,
+        },
+      }
+    );
+
+    const checkButton = screen.getByRole('button', {
+      name: 'Check availability',
     });
-    const submit = screen.getByRole('button', { name: 'Check & Reserve' });
 
-    expect(lastCall('GET', '/api/slots')[0]).toBe(`${SERVER_URL}/api/slots?date=${DATE}`);
-    expect(screen.getByRole('button', { name: /12:00 – 14:00/ })).toBeDisabled(); // less than 2 hours left
-    expect(submit).toBeDisabled(); // the time slot is still missing
+    expect(lastCall('GET', '/api/slots')[0]).toBe(
+      `${SERVER_URL}/api/slots?date=${DATE}`
+    );
 
-    await user.click(screen.getByRole('button', { name: '19:00 – 21:00' }));
-    for (let i = 0; i < 5; i++) await user.click(screen.getByRole('button', { name: 'Add one guest' }));
-    await user.click(submit);
+    expect(
+      screen.getByRole('button', { name: /12:00 – 14:00/ })
+    ).toBeDisabled();
 
-    expect(JSON.parse(lastCall('POST', '/api/reservations')[1].body)).toEqual({ slotId: 2, partySize: 6 });
-    expect(await screen.findByRole('heading', { name: 'Reservation confirmed!' })).toBeInTheDocument();
+    expect(checkButton).toBeDisabled();
+
+    await user.click(
+      screen.getByRole('button', { name: '19:00 – 21:00' })
+    );
+
+    for (let i = 0; i < 5; i++) {
+      await user.click(
+        screen.getByRole('button', { name: 'Add one guest' })
+      );
+    }
+
+    await user.click(checkButton);
+
+    expect(
+      await screen.findByText('Table available for 6 guests')
+    ).toBeInTheDocument();
+
+    expect(
+      lastCall('GET', '/api/slots/2/availability')[0]
+    ).toBe(`${SERVER_URL}/api/slots/2/availability?partySize=6`);
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Reserve' })
+    );
+
+    expect(
+      JSON.parse(lastCall('POST', '/api/reservations')[1].body)
+    ).toEqual({ slotId: 2, partySize: 6 });
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Reservation confirmed!',
+      })
+    ).toBeInTheDocument();
+
     expect(screen.getByText('#9')).toBeInTheDocument();
-    expect(screen.getByText('T2 (4 seats), T5 (2 seats)')).toBeInTheDocument();
+    expect(
+      screen.getByText('T2 (4 seats), T5 (2 seats)')
+    ).toBeInTheDocument();
   });
 
   it('shows the reason and keeps the form when the server refuses the booking', async () => {
-    const user = userEvent.setup();
-    await openSlotsOfDate(user, { status: 409, body: { error: 'NO_AVAILABILITY' } });
+  const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: '19:00 – 21:00' }));
-    await user.click(screen.getByRole('button', { name: 'Check & Reserve' }));
+  await openSlotsOfDate(
+    user,
+    {
+      status: 409,
+      body: { error: 'NO_AVAILABILITY' },
+    },
+    {
+      status: 200,
+      body: {
+        slotId: 2,
+        partySize: 1,
+        available: true,
+        tableAllocation: [
+          { tableId: 2, tableCode: 'T2', allocatedSeats: 1 },
+        ],
+      },
+    }
+  );
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Not enough seats available for this party size.');
-    expect(screen.queryByRole('heading', { name: 'Reservation confirmed!' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Check & Reserve' })).toBeEnabled();
-  });
+  await user.click(
+    screen.getByRole('button', { name: '19:00 – 21:00' })
+  );
+
+  await user.click(
+    screen.getByRole('button', { name: 'Check availability' })
+  );
+
+  expect(
+    await screen.findByText('Table available for 1 guest')
+  ).toBeInTheDocument();
+
+  await user.click(
+    await screen.findByRole('button', { name: 'Reserve' })
+  );
+
+  expect(
+    await screen.findByRole('alert')
+  ).toHaveTextContent('Not enough seats available for this party size.');
+
+  expect(
+    screen.queryByRole('heading', { name: 'Reservation confirmed!' })
+  ).not.toBeInTheDocument();
+
+  expect(
+    screen.getByRole('button', { name: 'Check availability' })
+  ).toBeEnabled();
+});
 });
