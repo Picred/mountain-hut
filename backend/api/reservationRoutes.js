@@ -20,7 +20,7 @@ router.post('/', async (req, res) => {
         throw new UnauthorizedError('UNAUTHORIZED');
     }
 
-    const { slotId, partySize } = req.body ?? {};
+    const { slotId, partySize, requirements } = req.body ?? {};
 
     // Validate the reservation data.
     if (
@@ -32,11 +32,9 @@ router.post('/', async (req, res) => {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    const reservation = await makeReservation(
-        slotId,
-        userId,
-        partySize
-    );
+    const reservation = requirements === undefined
+        ? await makeReservation(slotId, userId, partySize)
+        : await makeReservation(slotId, userId, partySize, requirements);
     // no await!!
     sendBookingConfirmation(reservation.reservationId);
     
