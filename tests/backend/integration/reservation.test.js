@@ -76,11 +76,40 @@ beforeAll(async () => {
 }, 20000);
 
 // Every test starts from the demo data: remove what the previous test created
-afterEach(() => {
-  db.prepare('DELETE FROM reservation_table WHERE reservation_id > ?').run(seed.reservationId);
-  db.prepare('DELETE FROM reservations WHERE reservation_id > ?').run(seed.reservationId);
-  db.prepare('DELETE FROM slot_tables WHERE slot_id > ?').run(seed.slotId);
-  db.prepare('DELETE FROM slots WHERE slot_id > ?').run(seed.slotId);
+afterEach(async () => {
+  const maxAttempts = 5;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      db.exec('BEGIN IMMEDIATE');
+
+      db.prepare('DELETE FROM reservation_table WHERE reservation_id > ?')
+        .run(seed.reservationId);
+      db.prepare('DELETE FROM reservations WHERE reservation_id > ?')
+        .run(seed.reservationId);
+      db.prepare('DELETE FROM slot_tables WHERE slot_id > ?')
+        .run(seed.slotId);
+      db.prepare('DELETE FROM slots WHERE slot_id > ?')
+        .run(seed.slotId);
+
+      db.exec('COMMIT');
+      return;
+    } catch (error) {
+      if (db.isTransaction) {
+        db.exec('ROLLBACK');
+      }
+
+      const isDatabaseLocked =
+        error.code === 'SQLITE_BUSY' ||
+        /database is locked|SQLITE_BUSY/i.test(error.message);
+
+      if (!isDatabaseLocked || attempt === maxAttempts) {
+        throw error;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, attempt * 100));
+    }
+  }
 });
 
 afterAll(async () => {
