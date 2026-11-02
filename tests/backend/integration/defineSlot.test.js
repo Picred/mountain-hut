@@ -481,6 +481,12 @@ describe("POST /api/slots/:id/tables", () => {
     it("returns 409 if the slot already has reservations", async () => {
         const cookie = await loginAs(CARL_empl)
 
+        const reservation = await fetch(`${BASE_URL}/api/reservations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(cookie && { Cookie: cookie }) },
+            body: JSON.stringify({slotId: 4, partySize: 2}),
+        });
+
         const res = await fetch(`${BASE_URL}/api/slots/4/tables`, {
             method: "POST",
             headers: { "Content-type": "application/json", Cookie: cookie },
