@@ -256,7 +256,7 @@ export const CapacityPage = () => {
         } catch (err) {
             setCreateTableError(
                 err.message === "TABLE_ALREADY_EXISTS"
-                    ? "A table with this code already exists."
+                    ? "A table with this code and number of seats already exists."
                     : err.message
             );
         } finally {
