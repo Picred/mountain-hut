@@ -2,6 +2,7 @@ import sqlite from 'sqlite3';
 
 import db, { DB_PATH } from '../../db/db.js';
 import { dbAll, dbGet, dbRun } from '../../utils/dbHelpers.js';
+import { runExclusive } from '../../utils/transactionQueue.js';
 
 import BadRequestError from '../errors/BadRequestError.js';
 import NotFoundError from '../errors/NotFoundError.js';
@@ -200,7 +201,10 @@ const findBestAllocation = (tables, partySize) => {
  *
  * All queries within the transaction must use the same connection.
  */
-export const makeReservation = async (slotId, userId, partySize, requirements) => {
+export const makeReservation = (slotId, userId, partySize, requirements) =>
+    runExclusive(() => createReservation(slotId, userId, partySize, requirements));
+
+const createReservation = async (slotId, userId, partySize, requirements) => {
     if (!Number.isInteger(slotId) || slotId <= 0 ||
         !Number.isInteger(userId) || userId <= 0 ||
         !Number.isInteger(partySize) || partySize <= 0) {
@@ -345,7 +349,7 @@ export const makeReservation = async (slotId, userId, partySize, requirements) =
             `, [
                 reservationId,
                 requirement.peopleCount,
-                requirement.description,
+                requirement.description.trim(),
                 requirement.isAllergy ? 1 : 0
             ], connection);
         }
@@ -388,7 +392,7 @@ export const makeReservation = async (slotId, userId, partySize, requirements) =
             ...(requirements === undefined ? {} : {
                 requirements: requirements.map(requirement => ({
                     peopleCount: requirement.peopleCount,
-                    description: requirement.description,
+                    description: requirement.description.trim(),
                     isAllergy: requirement.isAllergy
                 }))
             }),
