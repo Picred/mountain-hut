@@ -85,6 +85,8 @@ afterEach(async () => {
 
       db.prepare('DELETE FROM reservation_table WHERE reservation_id > ?')
         .run(seed.reservationId);
+      db.prepare('DELETE FROM reservation_requirements WHERE reservation_id > ?')
+        .run(seed.reservationId);
       db.prepare('DELETE FROM reservations WHERE reservation_id > ?')
         .run(seed.reservationId);
       db.prepare('DELETE FROM slot_tables WHERE slot_id > ?')
@@ -190,6 +192,7 @@ describe('POST /api/reservations', () => {
       status: 'confirmed',
       tableAllocation: [{ tableId: 1, tableCode: 'T1', allocatedSeats: 3 }],
     });
+    expect(res.body).not.toHaveProperty('requirements');
     const saved = db.prepare(`
       SELECT r.user_id, r.status, t.table_id, rt.allocated_seats
       FROM reservations r
@@ -199,6 +202,44 @@ describe('POST /api/reservations', () => {
       WHERE r.reservation_id = ?
     `).all(res.body.reservationId);
     expect(saved.map((row) => ({ ...row }))).toEqual([{ user_id: 3, status: 'confirmed', table_id: 1, allocated_seats: 3 }]);
+  });
+
+  it('saves multiple party requirements and returns them in the reservation response', async () => {
+    const cookie = await loginAs(ANNA);
+    const requirements = [
+      { peopleCount: 1, description: 'peanuts', isAllergy: true },
+      { peopleCount: 2, description: 'vegetarian', isAllergy: false },
+    ];
+
+    const res = await book(cookie, { slotId: 4, partySize: 3, requirements });
+
+    expect(res.status).toBe(201);
+    expect(res.body.requirements).toEqual(requirements);
+
+    const saved = db.prepare(`
+      SELECT people_count, description, is_allergy
+      FROM reservation_requirements
+      WHERE reservation_id = ?
+      ORDER BY id
+    `).all(res.body.reservationId);
+    expect(saved.map((row) => ({ ...row }))).toEqual([
+      { people_count: 1, description: 'peanuts', is_allergy: 1 },
+      { people_count: 2, description: 'vegetarian', is_allergy: 0 },
+    ]);
+  });
+
+  it('rejects invalid party requirements without saving a reservation', async () => {
+    const cookie = await loginAs(ANNA);
+
+    const res = await book(cookie, {
+      slotId: 4,
+      partySize: 2,
+      requirements: [{ peopleCount: 1, description: 'peanuts', isAllergy: 'yes' }],
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_INPUT');
+    expect(db.prepare('SELECT COUNT(*) AS n FROM reservations WHERE slot_id = 4').get().n).toBe(0);
   });
 
   it('shares a table with another party when it is the best fit', async () => {
