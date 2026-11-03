@@ -138,7 +138,7 @@ describe('Reservation flow', () => {
 
     expect(
       JSON.parse(lastCall('POST', '/api/reservations')[1].body)
-    ).toEqual({ slotId: 2, partySize: 6 });
+    ).toEqual({ slotId: 2, partySize: 6 , requirements: []});
 
     expect(
       await screen.findByRole('heading', {

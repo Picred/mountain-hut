@@ -111,7 +111,7 @@ describe('reservation_api', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ slotId: 2, partySize: 4 }),
+        body: JSON.stringify({ slotId: 2, partySize: 4 , requirements: []}),
       });
     });
 
@@ -241,7 +241,7 @@ describe('ReservationPage', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ slotId: 1, partySize: 2 }),
+      body: JSON.stringify({ slotId: 1, partySize: 2, requirements: []}),
     });
   });
 });

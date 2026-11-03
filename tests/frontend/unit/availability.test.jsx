@@ -523,6 +523,7 @@ describe('ReservationPage - US4 availability', () => {
           date: todayKey(),
           slotId: '1',
           partySize: 1,
+          requirements: []
         },
       },
     });
