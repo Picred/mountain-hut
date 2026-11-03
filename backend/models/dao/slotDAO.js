@@ -1,4 +1,16 @@
-import { dbAll } from '../../utils/dbHelpers.js';
+import { dbAll, dbGet } from '../../utils/dbHelpers.js';
+
+/**
+ * Returns the seconds until the slot starts, or null if the slot does not exist.
+ */
+export const getSecondsUntilStart = async (slotId) => {
+    const row = await dbGet(`
+        SELECT strftime('%s', start_at) - strftime('%s', 'now') AS secondsUntilStart
+        FROM slots
+        WHERE slot_id = ?
+    `, [slotId]);
+    return row ? row.secondsUntilStart : null;
+};
 
 /**
  * Retrieves all slots for a given date.
