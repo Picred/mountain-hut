@@ -622,6 +622,19 @@ export const updateReservation = async (reservationId, userId, changes) => {
                     throw new ConflictError('ALREADY_BOOKED');
                 }
 
+                // Without requirement changes, the saved requirements must still fit in the new party.
+                if (!requirementOperations && newPartySize < reservation.partySize) {
+                    const covered = await dbGet(`
+                        SELECT COALESCE(SUM(people_count), 0) AS people
+                        FROM reservation_requirements
+                        WHERE reservation_id = ?
+                    `, [reservationId], connection);
+
+                    if (covered.people > newPartySize) {
+                        throw new BadRequestError('INVALID_INPUT');
+                    }
+                }
+
                 if (requirementOperations) {
                     const existingRequirements = await dbAll(`
                         SELECT id, people_count AS peopleCount, description, is_allergy AS isAllergy
@@ -666,7 +679,7 @@ export const updateReservation = async (reservationId, userId, changes) => {
                             WHERE id = ? AND reservation_id = ?
                         `, [
                             requirement.peopleCount,
-                            requirement.description,
+                            requirement.description.trim(),
                             requirement.isAllergy ? 1 : 0,
                             requirement.id,
                             reservationId
@@ -692,7 +705,7 @@ export const updateReservation = async (reservationId, userId, changes) => {
                         `, [
                             reservationId,
                             requirement.peopleCount,
-                            requirement.description,
+                            requirement.description.trim(),
                             requirement.isAllergy ? 1 : 0
                         ], connection);
                     }
