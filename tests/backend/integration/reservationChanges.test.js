@@ -279,7 +279,7 @@ describe('PATCH /api/reservations/:reservationId', () => {
       requirements: {
         update: [{ id: peanutsId, peopleCount: 1, description: 'nuts', isAllergy: true }],
         remove: [vegetarianId],
-        add: [{ peopleCount: 2, description: 'vegan', isAllergy: false }],
+        add: [{ peopleCount: 2, description: '  vegan  ', isAllergy: false }],
       },
     });
 
@@ -302,20 +302,23 @@ describe('PATCH /api/reservations/:reservationId', () => {
   it('rejects requirements for more people than the party or not of the reservation, saving nothing', async () => {
     const { cookie, reservation } = await annaBooks({
       partySize: 2,
-      requirements: [{ peopleCount: 1, description: 'peanuts', isAllergy: true }],
+      requirements: [{ peopleCount: 2, description: 'peanuts', isAllergy: true }],
     });
     const before = savedReservation(reservation.reservationId);
     const [otherReservationRequirementId] = requirementIds(1);
 
     const tooMany = await change(cookie, reservation.reservationId, {
-      requirements: { add: [{ peopleCount: 2, description: 'vegan', isAllergy: false }] },
+      requirements: { add: [{ peopleCount: 1, description: 'vegan', isAllergy: false }] },
     });
+    const smallerParty = await change(cookie, reservation.reservationId, { partySize: 1 });
     const notOwned = await change(cookie, reservation.reservationId, {
       requirements: { remove: [otherReservationRequirementId] },
     });
 
     expect(tooMany.status).toBe(400);
     expect(tooMany.body.error).toBe('INVALID_INPUT');
+    expect(smallerParty.status).toBe(400);
+    expect(smallerParty.body.error).toBe('INVALID_INPUT');
     expect(notOwned.status).toBe(404);
     expect(notOwned.body.error).toBe('REQUIREMENT_NOT_FOUND');
     expect(savedReservation(reservation.reservationId)).toEqual(before);
