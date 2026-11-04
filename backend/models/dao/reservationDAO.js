@@ -2,6 +2,7 @@ import sqlite from 'sqlite3';
 
 import db, { DB_PATH } from '../../db/db.js';
 import { dbAll, dbGet, dbRun } from '../../utils/dbHelpers.js';
+import { runExclusive } from '../../utils/transactionQueue.js';
 
 import BadRequestError from '../errors/BadRequestError.js';
 import NotFoundError from '../errors/NotFoundError.js';
@@ -200,11 +201,39 @@ const findBestAllocation = (tables, partySize) => {
  *
  * All queries within the transaction must use the same connection.
  */
-export const makeReservation = async (slotId, userId, partySize) => {
+export const makeReservation = (slotId, userId, partySize, requirements) =>
+    runExclusive(() => createReservation(slotId, userId, partySize, requirements));
+
+const createReservation = async (slotId, userId, partySize, requirements) => {
     if (!Number.isInteger(slotId) || slotId <= 0 ||
         !Number.isInteger(userId) || userId <= 0 ||
         !Number.isInteger(partySize) || partySize <= 0) {
         throw new BadRequestError('INVALID_INPUT');
+    }
+
+    if (requirements !== undefined) {
+        if (!Array.isArray(requirements)) {
+            throw new BadRequestError('INVALID_INPUT');
+        }
+
+        const totalPeopleWithRequirements = requirements.reduce((total, requirement) => {
+            if (
+                !requirement ||
+                !Number.isInteger(requirement.peopleCount) ||
+                requirement.peopleCount <= 0 ||
+                typeof requirement.description !== 'string' ||
+                requirement.description.trim().length === 0 ||
+                typeof requirement.isAllergy !== 'boolean'
+            ) {
+                throw new BadRequestError('INVALID_INPUT');
+            }
+
+            return total + requirement.peopleCount;
+        }, 0);
+
+        if (totalPeopleWithRequirements > partySize) {
+            throw new BadRequestError('INVALID_INPUT');
+        }
     }
 
     // Create a dedicated connection for this reservation.
@@ -308,6 +337,23 @@ export const makeReservation = async (slotId, userId, partySize) => {
 
         const reservationId = result.lastID;
 
+        for (const requirement of requirements ?? []) {
+            await dbRun(`
+                INSERT INTO reservation_requirements (
+                    reservation_id,
+                    people_count,
+                    description,
+                    is_allergy
+                )
+                VALUES (?, ?, ?, ?)
+            `, [
+                reservationId,
+                requirement.peopleCount,
+                requirement.description.trim(),
+                requirement.isAllergy ? 1 : 0
+            ], connection);
+        }
+
         // Insert each table allocation using the same transaction.
         // If any INSERT fails, the reservation and all previously
         // inserted allocations will be rolled back together.
@@ -343,6 +389,13 @@ export const makeReservation = async (slotId, userId, partySize) => {
             slotId,
             partySize,
             status: 'confirmed',
+            ...(requirements === undefined ? {} : {
+                requirements: requirements.map(requirement => ({
+                    peopleCount: requirement.peopleCount,
+                    description: requirement.description.trim(),
+                    isAllergy: requirement.isAllergy
+                }))
+            }),
             tableAllocation: availability.tableAllocation.map(table => ({
                 tableId: table.tableId,
                 tableCode: table.tableCode,
