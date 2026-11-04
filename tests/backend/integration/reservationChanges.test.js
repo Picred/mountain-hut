@@ -13,7 +13,7 @@ const PORT = 3105;
 const BASE_URL = `http://localhost:${PORT}`;
 
 // Demo data: slot 4 (in two days) is empty with T1 (4) and T3 (6), slot 6 (in eight days) is empty too.
-// Anna's reservation 1 (slot 1) was made 72 hours ago, Bruno's reservation 7 is cancelled.
+// Anna booked slot 1 (reservation 1, 72 hours ago) and slot 2 (reservation 5), Bruno's reservation 7 is cancelled.
 const ANNA = 'anna@mountainhut.test';
 const BRUNO = 'bruno@mountainhut.test';
 const EDWARD = 'edward@mountainhut.test';
@@ -139,6 +139,7 @@ describe('PATCH /api/reservations/:reservationId', () => {
       [1, { partySize: 0 }],
       [1, { requirements: [] }],
       [1, { requirements: { add: {} } }],
+      [1, { requirements: { add: [{ peopleCount: 1, description: ' ', isAllergy: false }] } }],
     ]) {
       const res = await change(cookie, reservationId, body);
       expect(res.status).toBe(400);
@@ -226,6 +227,8 @@ describe('PATCH /api/reservations/:reservationId', () => {
     expect(savedReservation(reservation.reservationId).tables).toEqual([
       { slot_id: 6, table_id: 5, allocated_seats: 2 },
     ]);
+    const oldSlot = await request('GET', '/api/slots/4/availability?partySize=10', null);
+    expect(oldSlot.body.available).toBe(true);
   });
 
   it('returns 409 and keeps the old reservation when the new party does not fit', async () => {
@@ -322,5 +325,44 @@ describe('PATCH /api/reservations/:reservationId', () => {
     expect(notOwned.status).toBe(404);
     expect(notOwned.body.error).toBe('REQUIREMENT_NOT_FOUND');
     expect(savedReservation(reservation.reservationId)).toEqual(before);
+  });
+});
+
+describe('GET /api/reservations', () => {
+  it('returns 401 when the user is not logged in', async () => {
+    const res = await request('GET', '/api/reservations', null);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('UNAUTHORIZED');
+  });
+
+  it("lists only the hiker's reservations, latest slot first, with the details needed to change them", async () => {
+    const { cookie, reservation } = await annaBooks({
+      partySize: 3,
+      requirements: [{ peopleCount: 1, description: 'peanuts', isAllergy: true }],
+    });
+    const saved = db.prepare(`
+      SELECT s.start_at, s.end_at, r.created_at
+      FROM reservations r JOIN slots s ON s.slot_id = r.slot_id
+      WHERE r.reservation_id = ?
+    `).get(reservation.reservationId);
+
+    const res = await request('GET', '/api/reservations', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((r) => r.reservationId)).toEqual([reservation.reservationId, 5, 1]);
+    expect(res.body[0]).toEqual({
+      reservationId: reservation.reservationId,
+      slotId: 4,
+      startAt: saved.start_at,
+      endAt: saved.end_at,
+      partySize: 3,
+      status: 'confirmed',
+      createdAt: saved.created_at,
+      requirements: [
+        { id: requirementIds(reservation.reservationId)[0], peopleCount: 1, description: 'peanuts', isAllergy: true },
+      ],
+      tableAllocation: [{ tableId: 1, tableCode: 'T1', allocatedSeats: 3 }],
+    });
   });
 });
