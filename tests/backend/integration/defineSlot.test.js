@@ -484,8 +484,9 @@ describe("POST /api/slots/:id/tables", () => {
         const reservation = await fetch(`${BASE_URL}/api/reservations`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...(cookie && { Cookie: cookie }) },
-            body: JSON.stringify({slotId: 4, partySize: 2}),
+            body: JSON.stringify({ slotId: 4, partySize: 2, hiker: { name: 'Walk-in' } }),
         });
+        expect(reservation.status).toBe(201)
 
         const res = await fetch(`${BASE_URL}/api/slots/4/tables`, {
             method: "POST",
