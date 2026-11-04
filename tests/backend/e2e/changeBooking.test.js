@@ -683,4 +683,168 @@ describe('Change a booking e2e', () => {
       expect(validRes.body.requirements[0].description).toBe('strict vegetarian');
     });
   });
+
+  describe('GET /api/reservations', () => {
+    it('returns 401 UNAUTHORIZED when no user is authenticated', async () => {
+      const anonymous = request(BACKEND_URL);
+      const res = await anonymous.get('/api/reservations');
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('UNAUTHORIZED');
+    });
+
+    it('returns 200 and an empty array when the user has no reservations', async () => {
+      const hiker = await newHiker();
+      const res = await hiker.get('/api/reservations');
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body).toEqual([]);
+    });
+
+    it('returns only the authenticated hiker reservations and isolates users', async () => {
+      const hikerA = await newHiker();
+      const hikerB = await newHiker();
+
+      const slotA = await newSlot([T1, T2]);
+      const slotB = await newSlot([T1, T2]);
+
+      const resA = (await hikerA.post('/api/reservations').send({ slotId: slotA, partySize: 2 })).body;
+      const resB = (await hikerB.post('/api/reservations').send({ slotId: slotB, partySize: 3 })).body;
+
+      const listA = await hikerA.get('/api/reservations');
+      expect(listA.status).toBe(200);
+      expect(listA.body.map((r) => r.reservationId)).toEqual([resA.reservationId]);
+
+      const listB = await hikerB.get('/api/reservations');
+      expect(listB.status).toBe(200);
+      expect(listB.body.map((r) => r.reservationId)).toEqual([resB.reservationId]);
+    });
+
+    it('returns reservations ordered from the latest time slot first (startAt DESC)', async () => {
+      const hiker = await newHiker();
+      // Slot earlier (in 60 days) and slot later (in 65 days)
+      const earlierSlot = await newSlot([T1, T2], 60);
+      const laterSlot = await newSlot([T1, T2], 65);
+
+      const earlierBooking = (await hiker.post('/api/reservations').send({ slotId: earlierSlot, partySize: 2 })).body;
+      const laterBooking = (await hiker.post('/api/reservations').send({ slotId: laterSlot, partySize: 2 })).body;
+
+      const res = await hiker.get('/api/reservations');
+      expect(res.status).toBe(200);
+
+      // Latest time slot must appear first
+      expect(res.body[0].reservationId).toBe(laterBooking.reservationId);
+      expect(res.body[1].reservationId).toBe(earlierBooking.reservationId);
+      expect(new Date(res.body[0].startAt).getTime()).toBeGreaterThan(new Date(res.body[1].startAt).getTime());
+    });
+
+    it('includes all required fields with correct types, including requirements and tableAllocation', async () => {
+      const hiker = await newHiker();
+      const slotId = await newSlot([T1, T2]);
+
+      const booking = (await hiker.post('/api/reservations').send({
+        slotId,
+        partySize: 3,
+      })).body;
+
+      // Add a requirement via PATCH so it has a known requirement ID
+      await hiker.patch(`/api/reservations/${booking.reservationId}`).send({
+        requirements: {
+          add: [
+            { peopleCount: 1, description: 'gluten allergy', isAllergy: true },
+          ],
+        },
+      });
+
+      const res = await hiker.get('/api/reservations');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+
+      const item = res.body[0];
+      expect(item.reservationId).toBe(booking.reservationId);
+      expect(item.slotId).toBe(slotId);
+      expect(typeof item.startAt).toBe('string');
+      expect(typeof item.endAt).toBe('string');
+      expect(item.partySize).toBe(3);
+      expect(item.status).toBe('confirmed');
+      expect(typeof item.createdAt).toBe('string');
+
+      // Check requirement fields
+      expect(item.requirements).toHaveLength(1);
+      expect(typeof item.requirements[0].id).toBe('number');
+      expect(item.requirements[0].peopleCount).toBe(1);
+      expect(item.requirements[0].description).toBe('gluten allergy');
+      expect(item.requirements[0].isAllergy).toBe(true);
+
+      // Check tableAllocation fields
+      expect(Array.isArray(item.tableAllocation)).toBe(true);
+      expect(item.tableAllocation.length).toBeGreaterThan(0);
+      const totalSeats = item.tableAllocation.reduce((sum, t) => sum + t.allocatedSeats, 0);
+      expect(totalSeats).toBe(3);
+      for (const table of item.tableAllocation) {
+        expect(typeof table.tableId).toBe('number');
+        expect(typeof table.tableCode).toBe('string');
+        expect(typeof table.allocatedSeats).toBe('number');
+      }
+    });
+
+    it('includes cancelled reservations with status "cancelled" and empty tableAllocation', async () => {
+      // Bruno has demo reservation 7 which is cancelled
+      const bruno = await loginBruno();
+      const res = await bruno.get('/api/reservations');
+
+      expect(res.status).toBe(200);
+      const cancelled = res.body.find((r) => r.reservationId === 7);
+      expect(cancelled).toBeDefined();
+      expect(cancelled.status).toBe('cancelled');
+      expect(cancelled.tableAllocation).toEqual([]);
+    });
+
+    it('enables the full workflow: retrieve reservations, extract requirement ID, and PATCH the reservation', async () => {
+      const hiker = await newHiker();
+      const slotId = await newSlot([T1, T2]);
+
+      const booking = (await hiker.post('/api/reservations').send({
+        slotId,
+        partySize: 2,
+      })).body;
+
+      // Add a requirement
+      await hiker.patch(`/api/reservations/${booking.reservationId}`).send({
+        requirements: {
+          add: [{ peopleCount: 1, description: 'nut allergy', isAllergy: true }],
+        },
+      });
+
+      // 1. GET /api/reservations to choose the reservation and inspect its details
+      const listRes = await hiker.get('/api/reservations');
+      expect(listRes.status).toBe(200);
+      const myBooking = listRes.body.find((r) => r.reservationId === booking.reservationId);
+      expect(myBooking).toBeDefined();
+
+      const reqToChange = myBooking.requirements[0];
+      expect(reqToChange.description).toBe('nut allergy');
+
+      // 2. PATCH using the requirement id found in the list
+      const patchRes = await hiker.patch(`/api/reservations/${myBooking.reservationId}`).send({
+        requirements: {
+          update: [
+            { id: reqToChange.id, peopleCount: 2, description: '2 nut allergies', isAllergy: true },
+          ],
+        },
+      });
+      expect(patchRes.status).toBe(200);
+
+      // 3. GET /api/reservations again to confirm the updated state
+      const updatedList = await hiker.get('/api/reservations');
+      const updatedBooking = updatedList.body.find((r) => r.reservationId === booking.reservationId);
+      expect(updatedBooking.requirements[0]).toEqual({
+        id: reqToChange.id,
+        peopleCount: 2,
+        description: '2 nut allergies',
+        isAllergy: true,
+      });
+    });
+  });
 });
