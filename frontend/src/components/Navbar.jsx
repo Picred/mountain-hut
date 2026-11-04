@@ -67,6 +67,14 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
                       {user.name}
                     </span>
                   )}
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4 text-slate-300"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                  >
+                    <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </div>
 
                 <ul
