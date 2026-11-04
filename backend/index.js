@@ -7,6 +7,7 @@ import passport from 'passport';
 import authenticationRoutes from './api/authenticationRoutes.js'
 import slotRoutes from './api/slotRoutes.js';
 import reservationRoutes from './api/reservationRoutes.js';
+import hikerReservationsRoute from './api/hikerReservationsRoute.js';
 
 import { errorHandler } from './utils/errorHandler.js';
 import capacityRoutes from './api/capacityRoutes.js';
@@ -40,6 +41,7 @@ app.use(passport.session());
 app.use(authenticationRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/reservations', reservationRoutes);
+app.use('/api', hikerReservationsRoute);
 app.use(capacityRoutes);
 
 // Centralized error handler (must be registered after the routes).
