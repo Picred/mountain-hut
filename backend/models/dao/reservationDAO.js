@@ -6,6 +6,7 @@ import { dbAll, dbGet, dbRun } from '../../utils/dbHelpers.js';
 import BadRequestError from '../errors/BadRequestError.js';
 import NotFoundError from '../errors/NotFoundError.js';
 import ConflictError from '../errors/ConflictError.js';
+import ForbiddenError from '../errors/ForbiddenError.js';
 
 
 /**
@@ -421,8 +422,6 @@ export const makeReservation = async (slotId, userId, partySize, requirements) =
         throw err;
 
     } finally {
-        // Always close the dedicated connection.
-        // Log a closing error without replacing the original operation error.
         await new Promise(resolve => {
             connection.close(err => {
                 if (err) {
@@ -432,4 +431,351 @@ export const makeReservation = async (slotId, userId, partySize, requirements) =
             });
         });
     }
+};
+
+const validateRequirement = requirement => {
+    if (
+        !requirement ||
+        !Number.isInteger(requirement.peopleCount) ||
+        requirement.peopleCount <= 0 ||
+        typeof requirement.description !== 'string' ||
+        requirement.description.trim().length === 0 ||
+        typeof requirement.isAllergy !== 'boolean'
+    ) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+};
+
+const validateRequirementOperations = operations => {
+    if (!operations || typeof operations !== 'object' || Array.isArray(operations)) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    const add = operations.add ?? [];
+    const update = operations.update ?? [];
+    const remove = operations.remove ?? [];
+
+    if (!Array.isArray(add) || !Array.isArray(update) || !Array.isArray(remove)) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    add.forEach(validateRequirement);
+
+    const updateIds = update.map(requirement => {
+        if (!Number.isInteger(requirement?.id) || requirement.id <= 0) {
+            throw new BadRequestError('INVALID_INPUT');
+        }
+        validateRequirement(requirement);
+        return requirement.id;
+    });
+
+    if (
+        new Set(updateIds).size !== updateIds.length ||
+        remove.some(id => !Number.isInteger(id) || id <= 0) ||
+        new Set(remove).size !== remove.length ||
+        updateIds.some(id => remove.includes(id))
+    ) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    return { add, update, remove };
+};
+
+const getUpdatedReservation = async (reservationId, connection) => {
+    const reservation = await dbGet(`
+        SELECT
+            reservation_id AS reservationId,
+            slot_id AS slotId,
+            party_size AS partySize,
+            status
+        FROM reservations
+        WHERE reservation_id = ?
+    `, [reservationId], connection);
+
+    const requirements = await dbAll(`
+        SELECT
+            id,
+            people_count AS peopleCount,
+            description,
+            is_allergy AS isAllergy
+        FROM reservation_requirements
+        WHERE reservation_id = ?
+        ORDER BY id
+    `, [reservationId], connection);
+
+    const allocation = await dbAll(`
+        SELECT
+            t.table_id AS tableId,
+            t.table_code AS tableCode,
+            rt.allocated_seats AS allocatedSeats
+        FROM reservation_table rt
+        JOIN slot_tables st ON st.slot_table_id = rt.slot_table_id
+        JOIN tables t ON t.table_id = st.table_id
+        WHERE rt.reservation_id = ?
+        ORDER BY t.table_id
+    `, [reservationId], connection);
+
+    return {
+        ...reservation,
+        requirements: requirements.map(requirement => ({
+            id: requirement.id,
+            peopleCount: requirement.peopleCount,
+            description: requirement.description,
+            isAllergy: requirement.isAllergy === 1
+        })),
+        tableAllocation: allocation
+    };
+};
+
+/**
+ * Updates an owned reservation atomically.
+ *
+ * Slot and party-size changes release the previous allocation and calculate a
+ * new one inside the same write transaction, preventing overbooking.
+ */
+export const updateReservation = async (reservationId, userId, changes) => {
+    if (
+        !Number.isInteger(reservationId) ||
+        reservationId <= 0 ||
+        !Number.isInteger(userId) ||
+        userId <= 0 ||
+        !changes ||
+        typeof changes !== 'object'
+    ) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+            const { slotId, partySize, requirements } = changes;
+            const requirementOperations = requirements === undefined
+                ? null
+                : validateRequirementOperations(requirements);
+
+            const connection = new sqlite.Database(DB_PATH, sqlite.OPEN_READWRITE);
+            let transactionStarted = false;
+
+            try {
+                await dbRun('PRAGMA foreign_keys = ON', [], connection);
+                await dbRun('BEGIN IMMEDIATE', [], connection);
+                transactionStarted = true;
+
+                const reservation = await dbGet(`
+                    SELECT
+                        reservation_id AS reservationId,
+                        slot_id AS slotId,
+                        party_size AS partySize,
+                        status,
+                        user_id AS userId,
+                        created_at AS createdAt
+                    FROM reservations
+                    WHERE reservation_id = ?
+                `, [reservationId], connection);
+
+                if (!reservation) {
+                    throw new NotFoundError('RESERVATION_NOT_FOUND');
+                }
+
+                if (reservation.userId !== userId) {
+                    throw new ForbiddenError('FORBIDDEN');
+                }
+
+                if (!['confirmed', 'waiting'].includes(reservation.status)) {
+                    throw new ConflictError('RESERVATION_NOT_EDITABLE');
+                }
+
+                const ageInSeconds = Math.floor(
+                    (Date.now() - new Date(reservation.createdAt).getTime()) / 1000
+                );
+                if (ageInSeconds < 0 || ageInSeconds > 48 * 60 * 60) {
+                    throw new ConflictError('EDIT_WINDOW_EXPIRED');
+                }
+
+                const newSlotId = slotId ?? reservation.slotId;
+                const newPartySize = partySize ?? reservation.partySize;
+
+                const targetSlot = await dbGet(`
+                    SELECT
+                        slot_id AS slotId,
+                        strftime('%s', start_at) - strftime('%s', 'now') AS secondsUntilStart
+                    FROM slots
+                    WHERE slot_id = ?
+                `, [newSlotId], connection);
+
+                if (!targetSlot) {
+                    throw new NotFoundError('SLOT_NOT_FOUND');
+                }
+
+                if (targetSlot.secondsUntilStart < 7200) {
+                    throw new ConflictError('BOOKING_TOO_LATE');
+                }
+
+                const duplicate = await dbGet(`
+                    SELECT reservation_id
+                    FROM reservations
+                    WHERE user_id = ?
+                        AND slot_id = ?
+                        AND reservation_id <> ?
+                        AND status IN ('confirmed', 'waiting')
+                    LIMIT 1
+                `, [userId, newSlotId, reservationId], connection);
+
+                if (duplicate) {
+                    throw new ConflictError('ALREADY_BOOKED');
+                }
+
+                // Without requirement changes, the saved requirements must still fit in the new party.
+                if (!requirementOperations && newPartySize < reservation.partySize) {
+                    const covered = await dbGet(`
+                        SELECT COALESCE(SUM(people_count), 0) AS people
+                        FROM reservation_requirements
+                        WHERE reservation_id = ?
+                    `, [reservationId], connection);
+
+                    if (covered.people > newPartySize) {
+                        throw new BadRequestError('INVALID_INPUT');
+                    }
+                }
+
+                if (requirementOperations) {
+                    const existingRequirements = await dbAll(`
+                        SELECT id, people_count AS peopleCount, description, is_allergy AS isAllergy
+                        FROM reservation_requirements
+                        WHERE reservation_id = ?
+                    `, [reservationId], connection);
+                    const existingIds = new Set(existingRequirements.map(requirement => requirement.id));
+
+                    if (
+                        requirementOperations.update.some(requirement => !existingIds.has(requirement.id)) ||
+                        requirementOperations.remove.some(id => !existingIds.has(id))
+                    ) {
+                        throw new NotFoundError('REQUIREMENT_NOT_FOUND');
+                    }
+
+                    const resultingRequirements = existingRequirements
+                        .filter(requirement => !requirementOperations.remove.includes(requirement.id))
+                        .map(requirement => {
+                            const update = requirementOperations.update.find(
+                                candidate => candidate.id === requirement.id
+                            );
+                            return update ?? {
+                                ...requirement,
+                                isAllergy: requirement.isAllergy === 1
+                            };
+                        })
+                        .concat(requirementOperations.add);
+
+                    if (
+                        resultingRequirements.reduce(
+                            (total, requirement) => total + requirement.peopleCount,
+                            0
+                        ) > newPartySize
+                    ) {
+                        throw new BadRequestError('INVALID_INPUT');
+                    }
+
+                    for (const requirement of requirementOperations.update) {
+                        await dbRun(`
+                            UPDATE reservation_requirements
+                            SET people_count = ?, description = ?, is_allergy = ?
+                            WHERE id = ? AND reservation_id = ?
+                        `, [
+                            requirement.peopleCount,
+                            requirement.description.trim(),
+                            requirement.isAllergy ? 1 : 0,
+                            requirement.id,
+                            reservationId
+                        ], connection);
+                    }
+
+                    for (const id of requirementOperations.remove) {
+                        await dbRun(`
+                            DELETE FROM reservation_requirements
+                            WHERE id = ? AND reservation_id = ?
+                        `, [id, reservationId], connection);
+                    }
+
+                    for (const requirement of requirementOperations.add) {
+                        await dbRun(`
+                            INSERT INTO reservation_requirements (
+                                reservation_id,
+                                people_count,
+                                description,
+                                is_allergy
+                            )
+                            VALUES (?, ?, ?, ?)
+                        `, [
+                            reservationId,
+                            requirement.peopleCount,
+                            requirement.description.trim(),
+                            requirement.isAllergy ? 1 : 0
+                        ], connection);
+                    }
+                }
+
+                const allocationMustChange =
+                    newSlotId !== reservation.slotId ||
+                    newPartySize !== reservation.partySize;
+
+                let allocation;
+                if (allocationMustChange) {
+                    await dbRun(
+                        'DELETE FROM reservation_table WHERE reservation_id = ?',
+                        [reservationId],
+                        connection
+                    );
+
+                    allocation = await checkAvailability(
+                        newSlotId,
+                        newPartySize,
+                        connection
+                    );
+
+                    if (!allocation.available) {
+                        throw new ConflictError('NO_AVAILABILITY');
+                    }
+
+                    for (const table of allocation.tableAllocation) {
+                        await dbRun(`
+                            INSERT INTO reservation_table (
+                                reservation_id,
+                                slot_table_id,
+                                allocated_seats
+                            )
+                            VALUES (?, ?, ?)
+                        `, [
+                            reservationId,
+                            table.slotTableId,
+                            table.allocatedSeats
+                        ], connection);
+                    }
+                }
+
+                await dbRun(`
+                    UPDATE reservations
+                    SET slot_id = ?, party_size = ?
+                    WHERE reservation_id = ?
+                `, [newSlotId, newPartySize, reservationId], connection);
+
+                await dbRun('COMMIT', [], connection);
+                transactionStarted = false;
+
+                return await getUpdatedReservation(reservationId, connection);
+            } catch (err) {
+                if (transactionStarted) {
+                    try {
+                        await dbRun('ROLLBACK', [], connection);
+                    } catch (rollbackErr) {
+                        console.error('Rollback failed:', rollbackErr);
+                    }
+                }
+                throw err;
+            } finally {
+                await new Promise(resolve => {
+                    connection.close(err => {
+                        if (err) {
+                            console.error('Failed to close database connection:', err);
+                        }
+                        resolve();
+                    });
+                });
+            }
 };
