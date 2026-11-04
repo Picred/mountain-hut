@@ -353,3 +353,34 @@ Adds a new table type to the catalog.
 
 No new API: after a successful `POST /api/reservations`, a confirmation email is sent to the hiker who made the reservation.
 
+
+#### MH-04 - Check Availability
+
+##### GET `/api/slots/:slotId/availability?partySize=N`
+
+Checks whether a party fits in the slot (free seats and table layout, at least 2 hours before it starts) and how it would be split over the tables.
+
+- **Authentication:** not required (public).
+- **Path parameter:** `slotId` (positive integer), from `GET /api/slots?date=YYYY-MM-DD`.
+- **Query parameter:** `partySize` (required, positive integer).
+- **Response:** `200 OK`
+
+```json
+{
+  "slotId": 6,
+  "partySize": 6,
+  "available": true,
+  "tableAllocation": [
+    { "tableId": 4, "tableCode": "T4", "allocatedSeats": 2 },
+    { "tableId": 5, "tableCode": "T5", "allocatedSeats": 2 },
+    { "tableId": 6, "tableCode": "T6", "allocatedSeats": 2 }
+  ]
+}
+```
+
+If the party does not fit, `available` is `false` and `tableAllocation` is empty.
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT` (invalid `slotId` or `partySize`)
+  - `404 Not Found` — `SLOT_NOT_FOUND`
+
