@@ -41,7 +41,7 @@ sections:
 
 - Hours per task  <span style="color:red">per person</span>  (average, standard deviation)
 
-|            | Mean | StDev |
+|            | Average | StDev |
 |------------|------|-------|
 | Estimation |1.115 | 2.67  | 
 | Actual     |1.106 | 0.787 |
@@ -56,7 +56,7 @@ $$\frac{\sum_i spent_{task_i}}{\sum_i estimation_{task_i}} - 1 = 0.0078$$
 - Unit Testing:
   - Total hours estimated: 7h
   - Total hours spent: 8h 35m
-  - Nr of automated unit test cases: 231
+  - Nr of automated unit test cases: 459
   - Coverage (if available): 86.88 % 
 - Integration testing:
   - Total hours estimated: 10h 30m
