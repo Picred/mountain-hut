@@ -138,31 +138,67 @@ Retrieves the booking slots for the specified date including just the slots with
 Creates a confirmed reservation for the authenticated user.
 
 - **Authentication:** required.
+
 - **Request body:**
+
+`requirements` is optional. If provided, each entry must include a positive integer `peopleCount`, a non-empty `description`, and a boolean `isAllergy`. The sum of all `peopleCount` values must not exceed `partySize`.
 
 ```json
 {
   "slotId": 1,
-  "partySize": 3
+  "partySize": 3,
+  "requirements": [
+    {
+      "peopleCount": 1,
+      "description": "peanut allergy",
+      "isAllergy": true
+    },
+    {
+      "peopleCount": 2,
+      "description": "vegetarian",
+      "isAllergy": false
+    }
+  ]
 }
 ```
 
+
 - **Response:** `201 Created`
 
+When `requirements` is included in the request, it is included in the response:
+
 ```json
+
 {
   "reservationId": 9,
   "slotId": 1,
   "partySize": 3,
   "status": "confirmed",
+  "requirements": [
+    {
+      "peopleCount": 1,
+      "description": "peanut allergy",
+      "isAllergy": true
+    },
+    {
+      "peopleCount": 2,
+      "description": "vegetarian",
+      "isAllergy": false
+    }
+  ],
   "tableAllocation": [
     {
       "tableId": 2,
+      "tableCode": "B1",
       "allocatedSeats": 3
     }
   ]
 }
+
 ```
+
+If `requirements` is omitted, the response does not include that field.
+
 
 - **Errors:**
   - `400 Bad Request` — `INVALID_INPUT`
@@ -384,3 +420,119 @@ If the party does not fit, `available` is `false` and `tableAllocation` is empty
   - `400 Bad Request` — `INVALID_INPUT` (invalid `slotId` or `partySize`)
   - `404 Not Found` — `SLOT_NOT_FOUND`
 
+
+
+#### MH-06 - Change a Booking
+
+##### GET `/api/reservations`
+
+Retrieves all the reservations of the authenticated user, to choose the one to change.
+
+- **Authentication:** required.
+- **Response:** `200 OK` — an array ordered from the latest time slot, empty if the user has no reservations. It contains all the reservations, also the cancelled ones (they have no tables): use `status` to choose which ones to show. Each element contains:
+  - `reservationId`
+  - `slotId`
+  - `startAt` and `endAt` of the slot (ISO 8601, UTC)
+  - `partySize`
+  - `status` (`confirmed`, `waiting` or `cancelled`)
+  - `createdAt` (when the reservation was made)
+  - `requirements` (an array of `id`, `peopleCount`, `description`, `isAllergy`). The `id` is used to update or remove the requirement
+  - `tableAllocation` (an array of `tableId`, `tableCode`, `allocatedSeats`)
+
+```json
+[
+  {
+    "reservationId": 9,
+    "slotId": 1,
+    "startAt": "2026-11-04T11:00:00.000Z",
+    "endAt": "2026-11-04T12:00:00.000Z",
+    "partySize": 4,
+    "status": "confirmed",
+    "createdAt": "2026-11-03T10:15:00.000Z",
+    "requirements": [
+      { "id": 12, "peopleCount": 1, "description": "1 vegan, peanut allergy", "isAllergy": true },
+      { "id": 13, "peopleCount": 2, "description": "2 vegetarians", "isAllergy": false }
+    ],
+    "tableAllocation": [
+      { "tableId": 2, "tableCode": "T2", "allocatedSeats": 4 }
+    ]
+  }
+]
+```
+
+- **Errors:**
+  - `401 Unauthorized` — `UNAUTHORIZED`
+
+
+
+##### PATCH `/api/reservations/:reservationId`
+
+Modifies an existing reservation owned by the authenticated user. Changing the slot or party size recalculates the table allocation atomically. If the new party does not fit, nothing is changed and the reservation keeps its slot, its party size and its tables.
+
+- **Authentication:** required.
+- **Path parameter:** `reservationId` (positive integer).
+- **Request body:** at least one field must be provided. The `requirements` object and each of its operations (`add`, `update`, `remove`) are optional. After the change the party size cannot be reduced under the number of people with requirements unless the requirements are reduced in the same request.
+
+```json
+{
+  "slotId": 7,
+  "partySize": 3,
+  "requirements": {
+    "add": [
+      {
+        "peopleCount": 1,
+        "description": "nut allergy",
+        "isAllergy": true
+      }
+    ],
+    "update": [
+      {
+        "id": 12,
+        "peopleCount": 2,
+        "description": "vegetarian",
+        "isAllergy": false
+      }
+    ],
+    "remove": [13]
+  }
+}
+```
+
+- **Response:** `200 OK` — containing the complete updated reservation:
+
+```json
+{
+  "reservationId": 9,
+  "slotId": 7,
+  "partySize": 3,
+  "status": "confirmed",
+  "requirements": [
+    {
+      "id": 12,
+      "peopleCount": 2,
+      "description": "vegetarian",
+      "isAllergy": false
+    }
+  ],
+  "tableAllocation": [
+    {
+      "tableId": 1,
+      "tableCode": "T1",
+      "allocatedSeats": 3
+    }
+  ]
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT`
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `404 Not Found` — `RESERVATION_NOT_FOUND`
+  - `404 Not Found` — `SLOT_NOT_FOUND`
+  - `404 Not Found` — `REQUIREMENT_NOT_FOUND`
+  - `409 Conflict` — `RESERVATION_NOT_EDITABLE`
+  - `409 Conflict` — `EDIT_WINDOW_EXPIRED`
+  - `409 Conflict` — `BOOKING_TOO_LATE`
+  - `409 Conflict` — `NO_AVAILABILITY`
+  - `409 Conflict` — `ALREADY_BOOKED`
