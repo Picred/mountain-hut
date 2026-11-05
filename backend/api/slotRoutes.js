@@ -28,7 +28,7 @@ router.get('/', async (req, res) => {
         throw new BadRequestError('INVALID_DATE');
     }
 
-    const slots = await getSlotsByDate(date);
+    const slots = await getSlotsByDate(date, req.user?.role === 'employee');
 
     return res.status(200).json(slots);
 });
@@ -58,8 +58,9 @@ router.get('/:slotId/availability', async (req, res) => {
         throw new NotFoundError('SLOT_NOT_FOUND');
     }
 
-    // Bookings must be made at least 2 hours before the slot starts.
-    const { available, tableAllocation } = secondsUntilStart >= 7200
+    // Hikers book at least 2 hours before the slot starts, an employee until it starts.
+    const minimumSeconds = req.user?.role === 'employee' ? 1 : 7200;
+    const { available, tableAllocation } = secondsUntilStart >= minimumSeconds
         ? await checkAvailability(slotId, partySize)
         : { available: false, tableAllocation: [] };
 
