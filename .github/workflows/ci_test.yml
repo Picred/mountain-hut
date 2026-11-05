@@ -22,7 +22,7 @@ jobs:
       - name: Install root dependencies & Playwright browsers
         run: |
           npm ci
-          npx playwright install --with-deps
+          npx playwright install --with-deps chromium
 
       - name: Install frontend dependencies
         run: npm ci --prefix frontend

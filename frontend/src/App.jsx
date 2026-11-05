@@ -8,6 +8,7 @@ import { Homepage } from './pages/Homepage';
 import { Layout } from './pages/Layout';
 import { ReservationPage } from './pages/ReservationPage';
 import { CapacityPage } from './pages/CapacityPage';
+import { MyReservationsPage } from './pages/MyReservationsPage';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -160,6 +161,27 @@ export const App = () => {
                 // Visitors and hikers: anyone can check the availability,
                 // only logged-in hikers can reserve.
                 <ReservationPage loggedIn={loggedIn} />
+              )
+            }
+          />
+
+          <Route
+            path="/my-reservations"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate
+                  to="/login"
+                  replace
+                  state={{ from: location.pathname }}
+                />
+              ) : user?.role !== "hiker" ? (
+                <Navigate to="/" replace />
+              ) : (
+                <MyReservationsPage />
               )
             }
           />

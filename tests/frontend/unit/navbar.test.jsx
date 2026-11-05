@@ -46,7 +46,7 @@ describe('Navbar', () => {
   it('shows login and reservation options to guests', () => {
     renderNavbar();
 
-    expect(screen.getAllByRole('button', { name: 'Login' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Login' })).toHaveLength(1);
     expect(screen.getByRole('button', { name: /Reserve a table|Book/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument();
   });
@@ -84,13 +84,13 @@ describe('Navbar', () => {
     expect(navigate).toHaveBeenCalledWith('/reservations');
   });
 
-  it('navigates to login from the guest dropdown', async () => {
+  it('navigates to My reservations when clicked by a hiker', async () => {
     const user = userEvent.setup();
-    renderNavbar();
+    renderNavbar({ user: HIKER, loggedIn: true });
 
-    const loginButtons = screen.getAllByRole('button', { name: 'Login' });
-    await user.click(loginButtons[1]);
+    await user.click(screen.getByRole('button', { name: 'My reservations' }));
 
-    expect(navigate).toHaveBeenCalledWith('/login');
+    expect(navigate).toHaveBeenCalledWith('/my-reservations');
   });
+
 });
