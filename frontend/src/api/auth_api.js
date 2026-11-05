@@ -1,4 +1,4 @@
-const SERVER_URL = "http://localhost:3001";
+const SERVER_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
 // 1. REGISTRAZIONE
 async function register(name, email, phone, password, role = 'hiker') {

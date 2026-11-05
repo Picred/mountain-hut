@@ -1,4 +1,4 @@
-const SERVER_URL = "http://localhost:3001";
+const SERVER_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
 // Recupera gli slot in un intervallo di date
 async function getSlots(from, to) {
