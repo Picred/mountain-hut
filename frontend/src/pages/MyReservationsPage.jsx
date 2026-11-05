@@ -336,9 +336,10 @@ export const MyReservationsPage = () => {
                                         {editable ? (
                                             <button
                                                 type="button"
-                                                className="btn btn-sm border-sky-300 bg-sky-300 text-slate-950 hover:border-sky-200 hover:bg-sky-200"
+                                                className="btn btn-sm gap-2 border-sky-300 bg-sky-300 text-slate-950 hover:border-sky-200 hover:bg-sky-200"
                                                 onClick={() => openEditor(reservation)}
                                             >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4Z" /></svg>
                                                 Change reservation
                                             </button>
                                         ) : (
@@ -382,7 +383,7 @@ export const MyReservationsPage = () => {
                                     <p className="text-sm text-sky-300">Reservation #{selectedReservation.reservationId}</p>
                                     <h2 id="edit-reservation-title" className="mt-1 text-2xl font-bold text-white">Change your booking</h2>
                                 </div>
-                                <button type="button" className="btn btn-ghost btn-sm" onClick={closeEditor} disabled={isSaving}>
+                                <button type="button" className="btn btn-sm border border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/20" onClick={closeEditor} disabled={isSaving}>
                                     Close
                                 </button>
                             </div>
@@ -401,7 +402,7 @@ export const MyReservationsPage = () => {
                                                 setSlotsError("");
                                                 setEditDate(event.target.value);
                                             }}
-                                            className="h-12 w-full rounded-xl border border-white/15 bg-[#0e1622] px-4 text-sm text-white outline-none focus:border-sky-300"
+                                            className="scheme-dark h-12 w-full rounded-xl border border-white/15 bg-[#0e1622] px-4 text-sm text-white outline-none focus:border-sky-300"
                                             required
                                         />
                                     </div>
@@ -475,105 +476,105 @@ export const MyReservationsPage = () => {
                                         {requirements.map((requirement, index) => (
                                             <div key={requirement.id ?? `new-${index}`} className="space-y-4 rounded-xl border border-white/10 bg-[#090f19] p-4">
                                                 <div className="grid items-start gap-5 sm:grid-cols-2">
-                                                  <div className="space-y-2">
-                                                    <label htmlFor={`requirement-${requirement.id ?? index}-people`} className="block text-sm font-medium text-slate-300">Number of people</label>
-                                                    <input
-                                                        id={`requirement-${requirement.id ?? index}-people`}
-                                                        type="number"
-                                                        min="1"
-                                                        step="1"
-                                                        value={requirement.peopleCount}
-                                                        onChange={(event) => updateRequirement(index, "peopleCount", event.target.value)}
-                                                        className="h-12 w-full rounded-xl border border-white/15 bg-[#0e1622] px-4 text-sm text-white outline-none focus:border-sky-300"
-                                                    />
-                                                  </div>
-                                                  <div className="space-y-2">
-                                                    <label htmlFor={`requirement-${requirement.id ?? index}-description`} className="block text-sm font-medium text-slate-300">Description</label>
-                                                    <textarea
-                                                        id={`requirement-${requirement.id ?? index}-description`}
-                                                        rows="2"
-                                                        value={requirement.description}
-                                                        onChange={(event) => updateRequirement(index, "description", event.target.value)}
-                                                        className="min-h-12 w-full resize-y rounded-xl border border-white/15 bg-[#0e1622] px-4 py-3 text-sm leading-6 text-white outline-none focus:border-sky-300"
-                                                        required
-                                                    />
-                                                  </div>
+                                                    <div className="space-y-2">
+                                                        <label htmlFor={`requirement-${requirement.id ?? index}-people`} className="block text-sm font-medium text-slate-300">Number of people</label>
+                                                        <input
+                                                            id={`requirement-${requirement.id ?? index}-people`}
+                                                            type="number"
+                                                            min="1"
+                                                            step="1"
+                                                            value={requirement.peopleCount}
+                                                            onChange={(event) => updateRequirement(index, "peopleCount", event.target.value)}
+                                                            className="h-12 w-full rounded-xl border border-white/15 bg-[#0e1622] px-4 text-sm text-white outline-none focus:border-sky-300"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label htmlFor={`requirement-${requirement.id ?? index}-description`} className="block text-sm font-medium text-slate-300">Description</label>
+                                                        <textarea
+                                                            id={`requirement-${requirement.id ?? index}-description`}
+                                                            rows="2"
+                                                            value={requirement.description}
+                                                            onChange={(event) => updateRequirement(index, "description", event.target.value)}
+                                                            className="min-h-12 w-full resize-y rounded-xl border border-white/15 bg-[#0e1622] px-4 py-3 text-sm leading-6 text-white outline-none focus:border-sky-300"
+                                                            required
+                                                        />
+                                                    </div>
                                                 </div>
                                                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
-                                                  <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-300">
-                                                    <input
-                                                        aria-label={`Requirement ${index + 1} is allergy`}
-                                                        type="checkbox"
-                                                        checked={requirement.isAllergy}
-                                                        onChange={(event) => updateRequirement(index, "isAllergy", event.target.checked)}
-                                                        className="mt-0.5 h-4 w-4 accent-sky-300"
-                                                    />
-                                                    <span>Contains allergies</span>
-                                                  </label>
-                                                <button
-                                                    type="button"
-                                                    className="rounded-lg border border-red-400/30 px-4 py-2 text-sm font-semibold text-red-300 transition-colors hover:bg-red-400/10"
-                                                    onClick={() => setRequirements((current) => current.filter((_, itemIndex) => itemIndex !== index))}
-                                                >
-                                                    Remove
-                                                </button>
+                                                    <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-300">
+                                                        <input
+                                                            aria-label={`Requirement ${index + 1} is allergy`}
+                                                            type="checkbox"
+                                                            checked={requirement.isAllergy}
+                                                            onChange={(event) => updateRequirement(index, "isAllergy", event.target.checked)}
+                                                            className="mt-0.5 h-4 w-4 accent-sky-300"
+                                                        />
+                                                        <span>Contains allergies</span>
+                                                    </label>
+                                                    <button
+                                                        type="button"
+                                                        className="rounded-lg border border-red-400/30 px-4 py-2 text-sm font-semibold text-red-300 transition-colors hover:bg-red-400/10"
+                                                        onClick={() => setRequirements((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                                                    >
+                                                        Remove
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
 
                                     <div className="mt-5 space-y-4 rounded-xl border border-dashed border-white/15 bg-[#090f19] p-4">
-                                      <div className="grid items-start gap-5 sm:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <label htmlFor="new-requirement-people" className="block text-sm font-medium text-slate-300">Number of people</label>
-                                            <input
-                                                id="new-requirement-people"
-                                                type="number"
-                                                min="1"
-                                                step="1"
-                                                value={requirementDraft.peopleCount}
-                                                onChange={(event) => setRequirementDraft((current) => ({ ...current, peopleCount: event.target.value }))}
-                                                className="h-12 w-full rounded-xl border border-white/15 bg-[#0e1622] px-4 text-sm text-white outline-none focus:border-sky-300"
-                                            />
+                                        <div className="grid items-start gap-5 sm:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <label htmlFor="new-requirement-people" className="block text-sm font-medium text-slate-300">Number of people</label>
+                                                <input
+                                                    id="new-requirement-people"
+                                                    type="number"
+                                                    min="1"
+                                                    step="1"
+                                                    value={requirementDraft.peopleCount}
+                                                    onChange={(event) => setRequirementDraft((current) => ({ ...current, peopleCount: event.target.value }))}
+                                                    className="h-12 w-full rounded-xl border border-white/15 bg-[#0e1622] px-4 text-sm text-white outline-none focus:border-sky-300"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label htmlFor="new-requirement-description" className="block text-sm font-medium text-slate-300">Description</label>
+                                                <textarea
+                                                    id="new-requirement-description"
+                                                    rows="2"
+                                                    value={requirementDraft.description}
+                                                    onChange={(event) => setRequirementDraft((current) => ({ ...current, description: event.target.value }))}
+                                                    placeholder="e.g. Vegan, peanut allergy"
+                                                    className="min-h-12 w-full resize-y rounded-xl border border-white/15 bg-[#0e1622] px-4 py-3 text-sm leading-6 text-white outline-none focus:border-sky-300"
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <label htmlFor="new-requirement-description" className="block text-sm font-medium text-slate-300">Description</label>
-                                            <textarea
-                                                id="new-requirement-description"
-                                                rows="2"
-                                                value={requirementDraft.description}
-                                                onChange={(event) => setRequirementDraft((current) => ({ ...current, description: event.target.value }))}
-                                                placeholder="e.g. Vegan, peanut allergy"
-                                                className="min-h-12 w-full resize-y rounded-xl border border-white/15 bg-[#0e1622] px-4 py-3 text-sm leading-6 text-white outline-none focus:border-sky-300"
-                                            />
+                                        <div className="flex flex-col gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-300">
+                                                <input
+                                                    aria-label="New requirement is allergy"
+                                                    type="checkbox"
+                                                    checked={requirementDraft.isAllergy}
+                                                    onChange={(event) => setRequirementDraft((current) => ({ ...current, isAllergy: event.target.checked }))}
+                                                    className="mt-0.5 h-4 w-4 accent-sky-300"
+                                                />
+                                                <span>Contains allergies</span>
+                                            </label>
+                                            <button
+                                                type="button"
+                                                className="w-full cursor-pointer rounded-xl bg-sky-300 px-5 py-3 font-semibold text-slate-950 transition-colors hover:bg-sky-200 sm:w-auto"
+                                                onClick={addRequirement}
+                                            >
+                                                + Add requirement
+                                            </button>
                                         </div>
-                                      </div>
-                                      <div className="flex flex-col gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                                        <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-300">
-                                            <input
-                                                aria-label="New requirement is allergy"
-                                                type="checkbox"
-                                                checked={requirementDraft.isAllergy}
-                                                onChange={(event) => setRequirementDraft((current) => ({ ...current, isAllergy: event.target.checked }))}
-                                                className="mt-0.5 h-4 w-4 accent-sky-300"
-                                            />
-                                            <span>Contains allergies</span>
-                                        </label>
-                                        <button
-                                            type="button"
-                                            className="w-full cursor-pointer rounded-xl bg-sky-300 px-5 py-3 font-semibold text-slate-950 transition-colors hover:bg-sky-200 sm:w-auto"
-                                            onClick={addRequirement}
-                                        >
-                                            + Add requirement
-                                        </button>
-                                      </div>
                                     </div>
                                 </div>
 
                                 {formError && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{formError}</p>}
 
                                 <div className="flex flex-col-reverse justify-end gap-3 border-t border-white/10 pt-5 sm:flex-row">
-                                    <button type="button" className="btn btn-ghost" onClick={closeEditor} disabled={isSaving}>
+                                    <button type="button" className="btn border border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/20" onClick={closeEditor} disabled={isSaving}>
                                         Cancel
                                     </button>
                                     <button
