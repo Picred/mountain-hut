@@ -22,6 +22,7 @@ sections:
 - Code review completed
 - Code present on VCS
 - End-to-End tests performed
+- Integration tests passing
 
 
 ### Detailed statistics
