@@ -201,13 +201,22 @@ const findBestAllocation = (tables, partySize) => {
  * - ROLLBACK: undoes all changes if any operation fails.
  *
  * All queries within the transaction must use the same connection.
+ *
+ * byEmployee is set when an employee books for a hiker: { employeeId } with the
+ * userId of a registered hiker, or with userId null and either newHiker
+ * ({ name, email, phone, salt, passwordHash }: the hiker is registered in the
+ * same transaction) or guest ({ name, phone }: a temporary hiker who cannot log in).
  */
-export const makeReservation = (slotId, userId, partySize, requirements) =>
-    runExclusive(() => createReservation(slotId, userId, partySize, requirements));
+export const makeReservation = (slotId, userId, partySize, requirements, byEmployee) =>
+    runExclusive(() => createReservation(slotId, userId, partySize, requirements, byEmployee));
 
-const createReservation = async (slotId, userId, partySize, requirements) => {
+const createReservation = async (slotId, userId, partySize, requirements, byEmployee) => {
+    const hikerCount = [userId, byEmployee?.newHiker, byEmployee?.guest]
+        .filter(hiker => hiker != null).length;
+
     if (!Number.isInteger(slotId) || slotId <= 0 ||
-        !Number.isInteger(userId) || userId <= 0 ||
+        (userId != null && (!Number.isInteger(userId) || userId <= 0)) ||
+        (byEmployee ? !Number.isInteger(byEmployee.employeeId) || hikerCount !== 1 : userId == null) ||
         !Number.isInteger(partySize) || partySize <= 0) {
         throw new BadRequestError('INVALID_INPUT');
     }
@@ -281,12 +290,27 @@ const createReservation = async (slotId, userId, partySize, requirements) => {
             throw new NotFoundError('SLOT_NOT_FOUND');
         }
 
-        if (slot.secondsUntilStart < 7200) {
+        // Hikers book at least 2 hours before the slot, an employee until it starts
+        // (e.g. a party arriving at the hut shortly before the meal).
+        if (byEmployee ? slot.secondsUntilStart <= 0 : slot.secondsUntilStart < 7200) {
             throw new ConflictError('BOOKING_TOO_LATE');
         }
 
+        let hiker = null;
+        if (byEmployee && userId) {
+            hiker = await dbGet(`
+                SELECT user_id AS userId, name, email, phone
+                FROM users
+                WHERE user_id = ? AND role = 'hiker'
+            `, [userId], connection);
+
+            if (!hiker) {
+                throw new NotFoundError('HIKER_NOT_FOUND');
+            }
+        }
+
         // An hiker cannot have more than one active booking for the same slot.
-        const existingReservation = await dbGet(`
+        const existingReservation = userId && await dbGet(`
             SELECT reservation_id
             FROM reservations
             WHERE user_id = ?
@@ -313,6 +337,33 @@ const createReservation = async (slotId, userId, partySize, requirements) => {
             throw new ConflictError('NO_AVAILABILITY');
         }
 
+        // The hiker registered by the employee is created in the same transaction:
+        // if the reservation fails, no account is left behind.
+        const newHiker = byEmployee?.newHiker;
+        if (newHiker) {
+            const existingUser = await dbGet(
+                'SELECT user_id FROM users WHERE email = ?',
+                [newHiker.email],
+                connection
+            );
+
+            if (existingUser) {
+                throw new ConflictError('EMAIL_ALREADY_USED');
+            }
+
+            const { lastID } = await dbRun(`
+                INSERT INTO users (name, email, phone, password_hash, salt, role)
+                VALUES (?, ?, ?, ?, ?, 'hiker')
+            `, [newHiker.name, newHiker.email, newHiker.phone, newHiker.passwordHash, newHiker.salt], connection);
+
+            hiker = { userId: lastID, name: newHiker.name, email: newHiker.email, phone: newHiker.phone };
+        }
+
+        const guest = byEmployee?.guest;
+        if (guest) {
+            hiker = { userId: null, name: guest.name, email: null, phone: guest.phone };
+        }
+
         // Insert the reservation inside the transaction.
         // The record will only be committed if all subsequent
         // table allocations are inserted successfully.
@@ -327,11 +378,13 @@ const createReservation = async (slotId, userId, partySize, requirements) => {
                 status,
                 created_at
             )
-            VALUES (?, ?, NULL, NULL, ?, ?, 'confirmed', ?)
+            VALUES (?, ?, ?, ?, ?, ?, 'confirmed', ?)
         `, [
             slotId,
-            userId,
-            userId,
+            hiker ? hiker.userId : userId,
+            guest?.name ?? null,
+            guest?.phone ?? null,
+            byEmployee?.employeeId ?? userId,
             partySize,
             new Date().toISOString()
         ], connection);
@@ -390,6 +443,7 @@ const createReservation = async (slotId, userId, partySize, requirements) => {
             slotId,
             partySize,
             status: 'confirmed',
+            ...(byEmployee ? { hiker } : {}),
             ...(requirements === undefined ? {} : {
                 requirements: requirements.map(requirement => ({
                     peopleCount: requirement.peopleCount,

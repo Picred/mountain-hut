@@ -1,16 +1,62 @@
 import { Router } from 'express';
 
 import { makeReservation, updateReservation } from '../models/dao/reservationDAO.js';
+import { hashPassword } from '../models/dao/authenticationDAO.js';
 import { sendBookingConfirmation, sendChangesConfirmation } from '../services/confirmation.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import UnauthorizedError from '../models/errors/UnauthorizedError.js';
 
 const router = Router();
 
+const isText = value => typeof value === 'string' && value.trim().length > 0;
+
+/**
+ * Reads the hiker an employee is booking for:
+ * - { userId }: a registered hiker
+ * - { name, email, phone, password }: a new hiker, registered with the reservation
+ * - { name, phone? }: a temporary hiker, who cannot log in
+ */
+const readHiker = async (hiker, employeeId) => {
+    if (!hiker || typeof hiker !== 'object' || Array.isArray(hiker)) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    if (hiker.userId !== undefined) {
+        if (!Number.isInteger(hiker.userId) || hiker.userId <= 0) {
+            throw new BadRequestError('INVALID_INPUT');
+        }
+        return { userId: hiker.userId, byEmployee: { employeeId } };
+    }
+
+    if (hiker.email !== undefined || hiker.password !== undefined) {
+        const { name, email, phone, password } = hiker;
+        if (![name, email, phone, password].every(isText) || password.length < 6) {
+            throw new BadRequestError('INVALID_INPUT');
+        }
+        const { salt, passwordHash } = await hashPassword(password);
+        return {
+            userId: null,
+            byEmployee: {
+                employeeId,
+                newHiker: { name: name.trim(), email: email.trim(), phone: phone.trim(), salt, passwordHash }
+            }
+        };
+    }
+
+    if (!isText(hiker.name) || (hiker.phone !== undefined && typeof hiker.phone !== 'string')) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+    return {
+        userId: null,
+        byEmployee: { employeeId, guest: { name: hiker.name.trim(), phone: hiker.phone?.trim() || null } }
+    };
+};
+
 /**
  * POST /api/reservations
  *
- * Creates a confirmed table reservation for an authenticated hiker.
+ * Creates a confirmed table reservation for an authenticated hiker,
+ * or for the hiker given in the body when the user is an employee.
  */
 router.post('/', async (req, res) => {
     // The authenticated user is provided by the authentication middleware.
@@ -20,7 +66,7 @@ router.post('/', async (req, res) => {
         throw new UnauthorizedError('UNAUTHORIZED');
     }
 
-    const { slotId, partySize, requirements } = req.body ?? {};
+    const { slotId, partySize, requirements, hiker } = req.body ?? {};
 
     // Validate the reservation data.
     if (
@@ -32,9 +78,15 @@ router.post('/', async (req, res) => {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    const reservation = requirements === undefined
-        ? await makeReservation(slotId, userId, partySize)
-        : await makeReservation(slotId, userId, partySize, requirements);
+    let reservation;
+    if (req.user.role === 'employee') {
+        const booking = await readHiker(hiker, userId);
+        reservation = await makeReservation(slotId, booking.userId, partySize, requirements, booking.byEmployee);
+    } else {
+        reservation = requirements === undefined
+            ? await makeReservation(slotId, userId, partySize)
+            : await makeReservation(slotId, userId, partySize, requirements);
+    }
     // no await!!
     sendBookingConfirmation(reservation.reservationId);
     

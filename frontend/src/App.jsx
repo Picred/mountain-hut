@@ -7,6 +7,7 @@ import authAPI from './api/auth_api'; // Assicurati che il nome del file coincid
 import { Homepage } from './pages/Homepage';
 import { Layout } from './pages/Layout';
 import { ReservationPage } from './pages/ReservationPage';
+import { EmployeeReservationPage } from './pages/EmployeeReservationPage';
 import { CapacityPage } from './pages/CapacityPage';
 import { MyReservationsPage } from './pages/MyReservationsPage';
 
@@ -156,7 +157,11 @@ export const App = () => {
                   Checking session...
                 </div>
               ) : loggedIn && user?.role !== 'hiker' ? (
-                <Navigate to="/" replace />
+                // Employees enter reservations from their own page.
+                <Navigate
+                  to={user?.role === 'employee' ? '/employee/reservations' : '/'}
+                  replace
+                />
               ) : (
                 // Visitors and hikers: anyone can check the availability,
                 // only logged-in hikers can reserve.
@@ -182,6 +187,27 @@ export const App = () => {
                 <Navigate to="/" replace />
               ) : (
                 <MyReservationsPage />
+              )
+            }
+          />
+
+          <Route
+            path="/employee/reservations"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate
+                  to="/login"
+                  replace
+                  state={{ from: location.pathname }}
+                />
+              ) : user?.role !== "employee" ? (
+                <Navigate to="/" replace />
+              ) : (
+                <EmployeeReservationPage />
               )
             }
           />
@@ -222,4 +248,4 @@ export const App = () => {
       </Routes>
     </>
   );
-}
+}

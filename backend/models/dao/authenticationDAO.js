@@ -39,6 +39,19 @@ export const getUser = (email, password) => {
 };
 
 
+// Hashes a password with a new random salt, in the format checked by getUser
+export const hashPassword = (password) => {
+    return new Promise((resolve, reject) => {
+        const salt = crypto.randomBytes(16).toString('hex');
+
+        crypto.scrypt(password, salt, 32, (err, hashedPassword) => {
+            if (err) return reject(err);
+            resolve({ salt, passwordHash: hashedPassword.toString('hex') });
+        });
+    });
+};
+
+
 // Crea un nuovo utente nel database
 export const createUser = (name, email, phone, password, role = 'hiker') => {
     return new Promise((resolve, reject) => {

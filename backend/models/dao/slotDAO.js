@@ -18,8 +18,11 @@ export const getSecondsUntilStart = async (slotId) => {
  * Slot timestamps are stored in UTC (ISO 8601 format).
  * Local times are calculated using the server's timezone,
  * which must match the mountain hut's timezone.
+ *
+ * Hikers can book until 2 hours before the slot starts, an employee until it
+ * starts (forEmployee = true).
  */
-export const getSlotsByDate = async (date) => {
+export const getSlotsByDate = async (date, forEmployee = false) => {
     const sql = `
         SELECT
             slot_id,
@@ -39,15 +42,16 @@ export const getSlotsByDate = async (date) => {
     const rows = await dbAll(sql, [date]);
 
     const slots = rows.map(row => {
-        // Bookings must be made at least 2 hours before the slot starts.
-        const bookingAllowed = row.secondsUntilStart >= 7200;
+        const bookingAllowed = forEmployee
+            ? row.secondsUntilStart > 0
+            : row.secondsUntilStart >= 7200;
 
         return {
             slotId: row.slot_id,
             startTime: row.startTime,
             endTime: row.endTime,
             bookingAllowed,
-            restrictionReason: bookingAllowed ? null : 'Less than 2 hours'
+            restrictionReason: bookingAllowed ? null : (forEmployee ? 'Already started' : 'Less than 2 hours')
         };
     });
 
