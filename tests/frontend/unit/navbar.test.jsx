@@ -84,4 +84,13 @@ describe('Navbar', () => {
     expect(navigate).toHaveBeenCalledWith('/reservations');
   });
 
+  it('navigates to My reservations when clicked by a hiker', async () => {
+    const user = userEvent.setup();
+    renderNavbar({ user: HIKER, loggedIn: true });
+
+    await user.click(screen.getByRole('button', { name: 'My reservations' }));
+
+    expect(navigate).toHaveBeenCalledWith('/my-reservations');
+  });
+
 });
