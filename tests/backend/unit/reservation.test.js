@@ -260,3 +260,205 @@ describe('reservationRoutes', () => {
     });
   });
 });
+describe('makeReservation - Happy Paths for Employee', () => {
+  
+  it('creates a reservation for an existent hiker when booked by an employee', async () => {
+    const byEmployee = { employeeId: 99 };
+    const hikerUserId = 5;
+
+    // 1. Mock DB reads (SELECTs)
+    dbGet
+      .mockResolvedValueOnce({ slotId: 1, secondsUntilStart: 10000 }) // Valid slot
+      .mockResolvedValueOnce({ userId: hikerUserId, name: 'Mario Rossi', email: 'mario@test.com', phone: '111' }) // Hiker found
+      .mockResolvedValueOnce(null); // No existing reservations for this user in this slot
+
+    // 2. Mock table availability
+    dbAll.mockResolvedValue([
+      { slotTableId: 10, tableId: 1, tableCode: 'A1', totalSeats: 4, occupiedSeats: 0 }
+    ]);
+
+    // 3. Mock DB writes (INSERTs and Transaction commands)
+    dbRun
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 })   // PRAGMA foreign_keys = ON
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 })   // BEGIN IMMEDIATE
+      .mockResolvedValueOnce({ lastID: 42, changes: 1 })  // INSERT INTO reservations
+      .mockResolvedValueOnce({ lastID: 1, changes: 1 })   // INSERT INTO reservation_table
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 });  // COMMIT
+
+    const result = await makeReservation(1, hikerUserId, 2, undefined, byEmployee);
+
+    // Verify the returned object structure
+    expect(result).toEqual({
+      reservationId: 42,
+      slotId: 1,
+      partySize: 2,
+      status: 'confirmed',
+      hiker: { userId: 5, name: 'Mario Rossi', email: 'mario@test.com', phone: '111' },
+      tableAllocation: [{ tableId: 1, tableCode: 'A1', allocatedSeats: 2 }]
+    });
+
+    // Verify that the reservation was committed
+    expect(dbRun).toHaveBeenCalledWith('COMMIT', [], expect.anything());
+  });
+
+
+  it('registers a new hiker and creates a reservation atomically when booked by an employee', async () => {
+    const newHikerData = {
+      name: 'Luigi Verdi',
+      email: 'luigi@test.com',
+      phone: '222',
+      passwordHash: 'hash',
+      salt: 'salt'
+    };
+    const byEmployee = { employeeId: 99, newHiker: newHikerData };
+
+    // 1. Mock DB reads (SELECTs)
+    // Note: 'existingReservation' check is skipped because userId is null initially
+    dbGet
+      .mockResolvedValueOnce({ slotId: 1, secondsUntilStart: 10000 }) // Valid slot
+      .mockResolvedValueOnce(null); // Email check: no existing user found with this email
+
+    // 2. Mock table availability
+    dbAll.mockResolvedValue([
+      { slotTableId: 10, tableId: 1, tableCode: 'A1', totalSeats: 4, occupiedSeats: 0 }
+    ]);
+
+    // 3. Mock DB writes (INSERTs and Transaction commands)
+    dbRun
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 })   // PRAGMA foreign_keys = ON
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 })   // BEGIN IMMEDIATE
+      .mockResolvedValueOnce({ lastID: 10, changes: 1 })  // INSERT INTO users (generates userId 10)
+      .mockResolvedValueOnce({ lastID: 43, changes: 1 })  // INSERT INTO reservations
+      .mockResolvedValueOnce({ lastID: 1, changes: 1 })   // INSERT INTO reservation_table
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 });  // COMMIT
+
+    const result = await makeReservation(1, null, 2, undefined, byEmployee);
+
+    // Verify the returned object includes the newly generated userId
+    expect(result).toEqual({
+      reservationId: 43,
+      slotId: 1,
+      partySize: 2,
+      status: 'confirmed',
+      hiker: { userId: 10, name: 'Luigi Verdi', email: 'luigi@test.com', phone: '222' },
+      tableAllocation: [{ tableId: 1, tableCode: 'A1', allocatedSeats: 2 }]
+    });
+  });
+
+
+  it('creates a reservation for a guest shortly before the slot starts (employee time override)', async () => {
+    const guestData = { name: 'Anna Neri', phone: '333' };
+    const byEmployee = { employeeId: 99, guest: guestData };
+
+    // 1. Mock DB reads (SELECTs)
+    // 1800 seconds = 30 minutes. An hiker would get 'BOOKING_TOO_LATE' (< 7200), 
+    // but the employee is allowed until secondsUntilStart <= 0
+    dbGet
+      .mockResolvedValueOnce({ slotId: 1, secondsUntilStart: 1800 }); 
+
+    // 2. Mock table availability
+    dbAll.mockResolvedValue([
+      { slotTableId: 10, tableId: 1, tableCode: 'A1', totalSeats: 4, occupiedSeats: 0 }
+    ]);
+
+    // 3. Mock DB writes (INSERTs and Transaction commands)
+    dbRun
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 })   // PRAGMA foreign_keys = ON
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 })   // BEGIN IMMEDIATE
+      .mockResolvedValueOnce({ lastID: 44, changes: 1 })  // INSERT INTO reservations
+      .mockResolvedValueOnce({ lastID: 1, changes: 1 })   // INSERT INTO reservation_table
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 });  // COMMIT
+
+    const result = await makeReservation(1, null, 2, undefined, byEmployee);
+
+    // Verify the returned object structure for a guest (userId and email are null)
+    expect(result).toEqual({
+      reservationId: 44,
+      slotId: 1,
+      partySize: 2,
+      status: 'confirmed',
+      hiker: { userId: null, name: 'Anna Neri', email: null, phone: '333' },
+      tableAllocation: [{ tableId: 1, tableCode: 'A1', allocatedSeats: 2 }]
+    });
+  });
+
+  it("rejects with NotFoundError('HIKER_NOT_FOUND') when employee provides a non-existent userId", async () => {
+    const byEmployee = { employeeId: 99 };
+    const invalidUserId = 999;
+
+    // 1. Mock DB writes for transaction setup and rollback
+    dbRun
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 }) // PRAGMA foreign_keys = ON
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 }) // BEGIN IMMEDIATE
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 });// ROLLBACK (called in catch block)
+
+    // 2. Mock DB reads
+    dbGet
+      .mockResolvedValueOnce({ slotId: 1, secondsUntilStart: 10000 }) // Valid slot
+      .mockResolvedValueOnce(null); // The query for the hiker returns nothing
+
+    // 3. Execute and verify the rejection
+    await expect(makeReservation(1, invalidUserId, 2, undefined, byEmployee))
+      .rejects.toBeInstanceOf(NotFoundError); // Checks for HIKER_NOT_FOUND
+
+    // 4. Verify that the transaction was safely rolled back
+    expect(dbRun).toHaveBeenCalledWith('ROLLBACK', [], expect.anything());
+  });
+
+
+  it("rejects with ConflictError('EMAIL_ALREADY_USED') when registering a new hiker with an existing email", async () => {
+    const newHikerData = {
+      name: 'Luigi Verdi',
+      email: 'existing@test.com', // This email is already in the DB
+      phone: '222',
+      passwordHash: 'hash',
+      salt: 'salt'
+    };
+    const byEmployee = { employeeId: 99, newHiker: newHikerData };
+
+    dbRun
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 }) // PRAGMA foreign_keys = ON
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 }) // BEGIN IMMEDIATE
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 });// ROLLBACK
+
+    dbGet
+      .mockResolvedValueOnce({ slotId: 1, secondsUntilStart: 10000 }) // Valid slot
+      // Note: skip duplicated booking check because userId is null
+      .mockResolvedValueOnce({ user_id: 88 }); // Email check finds an existing user
+
+    dbAll.mockResolvedValue([
+      { slotTableId: 10, tableId: 1, tableCode: 'A1', totalSeats: 4, occupiedSeats: 0 } // Tables are available
+    ]);
+
+    await expect(makeReservation(1, null, 2, undefined, byEmployee)).rejects.toSatisfy(
+      (err) => err instanceof ConflictError && err.message === 'EMAIL_ALREADY_USED'
+    );
+
+    expect(dbRun).toHaveBeenCalledWith('ROLLBACK', [], expect.anything());
+  });
+
+
+  it("rejects with ConflictError('BOOKING_TOO_LATE') when employee tries to book a slot that has already started", async () => {
+    const guestData = { name: 'Late Guest', phone: '333' };
+    const byEmployee = { employeeId: 99, guest: guestData };
+
+    dbRun
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 }) // PRAGMA foreign_keys = ON
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 }) // BEGIN IMMEDIATE
+      .mockResolvedValueOnce({ lastID: 0, changes: 0 });// ROLLBACK
+
+    dbGet
+      // secondsUntilStart is negative, meaning the slot started 60 seconds ago.
+      // Even the employee override (which allows up to <= 0) fails here.
+      .mockResolvedValueOnce({ slotId: 1, secondsUntilStart: -60 });
+
+    await expect(makeReservation(1, null, 2, undefined, byEmployee)).rejects.toSatisfy(
+      (err) => err instanceof ConflictError && err.message === 'BOOKING_TOO_LATE'
+    );
+
+    // Ensure we don't proceed with checking tables or hikers
+    expect(dbGet).toHaveBeenCalledTimes(1); 
+    expect(dbRun).toHaveBeenCalledWith('ROLLBACK', [], expect.anything());
+  });
+
+});
