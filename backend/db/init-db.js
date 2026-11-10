@@ -119,7 +119,7 @@ const RESERVATIONS = [
 //cancelled reservation
   { id: 7, slotId: 2, userId: 4, createdBy: 4, partySize: 2, status: 'cancelled', createdAt: hoursAgo(20) },
   { id: 8, slotId: 3, userId: 5, createdBy: 5, partySize: 3, createdAt: hoursAgo(1),
-    seats: [[5, 2], [4, 1]], requirements: [[1, 'celiac', 1]] },
+    seats: [[5, 2], [4, 1]], requirements: [[1, 'celiac', 1]] }
 ];
 
 

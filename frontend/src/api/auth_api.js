@@ -13,7 +13,7 @@ async function register(name, email, phone, password, role = 'hiker') {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || 'Errore durante la registrazione');
+    throw new Error(errorData.message || errorData.error || 'Registration failed');
   }
 
   return await response.json();
@@ -32,7 +32,7 @@ async function login(email, password) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || 'Errore durante il login');
+    throw new Error(errorData.message || errorData.error || 'Login failed');
   }
 
   return await response.json();
@@ -50,7 +50,7 @@ async function getCurrentUser() {
       return null;
     }
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || 'Errore durante il recupero della sessione');
+    throw new Error(errorData.message || errorData.error || 'Failed to retrieve the session');
   }
 
   return await response.json();
@@ -65,7 +65,7 @@ async function logout() {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || 'Errore durante il logout');
+    throw new Error(errorData.message || errorData.error || 'Logout failed');
   }
 
   return true;
