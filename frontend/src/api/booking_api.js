@@ -21,7 +21,7 @@ const errorMessage = (status, error) => {
 
     if (status === 409) {
         if (error === "EDIT_WINDOW_EXPIRED") {
-            return "This reservation can no longer be changed because the 48-hour change window has expired.";
+            return "This reservation can no longer be changed because it is less than 48 hours before the booked date.";
         }
         if (error === "RESERVATION_NOT_EDITABLE") {
             return "This reservation can no longer be changed.";
