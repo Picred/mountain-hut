@@ -2,6 +2,7 @@ import sqlite from 'sqlite3';
 
 import db, { DB_PATH } from '../../db/db.js';
 import { dbAll, dbGet, dbRun } from '../../utils/dbHelpers.js';
+import { runExclusive } from '../../utils/transactionQueue.js';
 
 import BadRequestError from '../errors/BadRequestError.js';
 import NotFoundError from '../errors/NotFoundError.js';
@@ -206,7 +207,10 @@ const findBestAllocation = (tables, partySize) => {
  * ({ name, email, phone, salt, passwordHash }: the hiker is registered in the
  * same transaction) or guest ({ name, phone }: a temporary hiker who cannot log in).
  */
-export const makeReservation = async (slotId, userId, partySize, requirements, byEmployee) => {
+export const makeReservation = (slotId, userId, partySize, requirements, byEmployee) =>
+    runExclusive(() => createReservation(slotId, userId, partySize, requirements, byEmployee));
+
+const createReservation = async (slotId, userId, partySize, requirements, byEmployee) => {
     const hikerCount = [userId, byEmployee?.newHiker, byEmployee?.guest]
         .filter(hiker => hiker != null).length;
 
@@ -399,7 +403,7 @@ export const makeReservation = async (slotId, userId, partySize, requirements, b
             `, [
                 reservationId,
                 requirement.peopleCount,
-                requirement.description,
+                requirement.description.trim(),
                 requirement.isAllergy ? 1 : 0
             ], connection);
         }
@@ -443,7 +447,7 @@ export const makeReservation = async (slotId, userId, partySize, requirements, b
             ...(requirements === undefined ? {} : {
                 requirements: requirements.map(requirement => ({
                     peopleCount: requirement.peopleCount,
-                    description: requirement.description,
+                    description: requirement.description.trim(),
                     isAllergy: requirement.isAllergy
                 }))
             }),

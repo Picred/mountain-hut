@@ -8,15 +8,18 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'json'],
       include: [
+        '../tests/frontend/**/*.{js,ts,jsx,tsx}',
         'frontend/src/**/*.{js,jsx,ts,tsx}',
         'backend/**/*.{js,ts}'
       ],
       exclude: [
+        '../tests/frontend/e2e/**',
         '**/node_modules/**',
         '**/dist/**',
         '**/*.config.*',
         'tests/**',
-        '**/tests/**'
+        '**/tests/**',
+        'backend/db/init-db.js',
       ]
     }
   }
