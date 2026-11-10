@@ -619,12 +619,13 @@ export const updateReservation = async (reservationId, userId, changes) => {
                 const reservation = await dbGet(`
                     SELECT
                         reservation_id AS reservationId,
-                        slot_id AS slotId,
+                        reservations.slot_id AS slotId,
                         party_size AS partySize,
                         status,
                         user_id AS userId,
-                        created_at AS createdAt
+                        strftime('%s', start_at) - strftime('%s', 'now') AS secondsUntilStart
                     FROM reservations
+                    JOIN slots ON slots.slot_id = reservations.slot_id
                     WHERE reservation_id = ?
                 `, [reservationId], connection);
 
@@ -640,10 +641,8 @@ export const updateReservation = async (reservationId, userId, changes) => {
                     throw new ConflictError('RESERVATION_NOT_EDITABLE');
                 }
 
-                const ageInSeconds = Math.floor(
-                    (Date.now() - new Date(reservation.createdAt).getTime()) / 1000
-                );
-                if (ageInSeconds < 0 || ageInSeconds > 48 * 60 * 60) {
+                // Changes are admitted until 48 hours before the booked slot starts.
+                if (reservation.secondsUntilStart < 48 * 60 * 60) {
                     throw new ConflictError('EDIT_WINDOW_EXPIRED');
                 }
 
