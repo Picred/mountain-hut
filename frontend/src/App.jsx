@@ -3,13 +3,16 @@ import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router'
 import LoginForm from './components/AuthComponents/LoginForm';
 import RegisterForm from './components/AuthComponents/RegistrationForm';
 import { useEffect, useState } from 'react';
-import authAPI from './api/auth_api'; // Assicurati che il nome del file coincida
+import authAPI from './api/auth_api';
 import { Homepage } from './pages/Homepage';
 import { Layout } from './pages/Layout';
 import { ReservationPage } from './pages/ReservationPage';
 import { EmployeeReservationPage } from './pages/EmployeeReservationPage';
 import { CapacityPage } from './pages/CapacityPage';
 import { MyReservationsPage } from './pages/MyReservationsPage';
+import { LocationPage } from './pages/Location';
+import { ServicesPage } from './pages/Services';
+import { ExcursionsPage } from './pages/Excursions';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -149,6 +152,11 @@ export const App = () => {
         >
           <Route index element={<Homepage />} />
 
+          {/* Detail pages opened from the homepage cards. */}
+          <Route path="/location" element={<LocationPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/excursions" element={<ExcursionsPage />} />
+
           <Route
             path="/reservations"
             element={
@@ -248,4 +256,4 @@ export const App = () => {
       </Routes>
     </>
   );
-}
+}
