@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import crypto from 'node:crypto';
+
 // Replace external modules with mocks so tests run in memory without SQLite files
 vi.mock('../../../backend/db/db.js', () => ({
   default: { get: vi.fn(), run: vi.fn(), all: vi.fn() },

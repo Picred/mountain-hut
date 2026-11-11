@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
+import ChangePasswordForm from '../../../frontend/src/components/AuthComponents/ChangePasswordForm';
 
 import authAPI from '../../../frontend/src/api/auth_api';
 import LoginForm from '../../../frontend/src/components/AuthComponents/LoginForm';
@@ -245,5 +246,147 @@ describe('LogoutButton', () => {
     await user.click(screen.getByRole('button', { name: 'Logout' }));
 
     expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('authAPI.changePassword', () => {
+  let fetchMock;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  it('sends a PUT to /api/users/password with the new password and returns the updated user', async () => {
+    const updatedUser = { user_id: 9, name: 'Giovanni Giorgio', email: 'giovanni@example.com', role: 'hiker', passwordToChange: false };
+    fetchMock.mockResolvedValue(mockResponse({ body: updatedUser }));
+
+    const result = await authAPI.changePassword('new-secret');
+
+    expect(result).toEqual(updatedUser);
+    expect(fetchMock).toHaveBeenCalledWith(`${SERVER_URL}/api/users/password`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ newPassword: 'new-secret' }),
+    });
+  });
+
+  it('throws the error sent by the server', async () => {
+    fetchMock.mockResolvedValue(mockResponse({
+      ok: false,
+      status: 400,
+      body: { error: 'The password must contain at least 6 characters.' },
+    }));
+
+    await expect(authAPI.changePassword('12345')).rejects.toThrow('The password must contain at least 6 characters.');
+  });
+
+  it('throws a default message when the error body is not valid JSON', async () => {
+    fetchMock.mockResolvedValue(mockResponse({ ok: false, status: 500, invalidJson: true }));
+
+    await expect(authAPI.changePassword('new-secret')).rejects.toThrow('Password change failed');
+  });
+});
+
+describe('ChangePasswordForm', () => {
+  async function fillForm(user, password, repeatPassword = password) {
+    await user.type(screen.getByLabelText('New password'), password);
+    await user.type(screen.getByLabelText('Repeat password'), repeatPassword);
+    await user.click(screen.getByRole('button', { name: 'Save new password' }));
+  }
+
+  it('explains why the password must be changed', () => {
+    renderForm(<ChangePasswordForm onChangePassword={vi.fn()} />);
+
+    expect(screen.getByRole('heading', { name: 'Choose a new password' })).toBeInTheDocument();
+    expect(screen.getByText(/You logged in with a temporary password/)).toBeInTheDocument();
+  });
+
+  it('calls onChangePassword with the new password', async () => {
+    const user = userEvent.setup();
+    const onChangePassword = vi.fn().mockResolvedValue();
+    renderForm(<ChangePasswordForm onChangePassword={onChangePassword} />);
+
+    await fillForm(user, 'new-secret');
+
+    expect(onChangePassword).toHaveBeenCalledWith('new-secret');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('does not submit a password shorter than 6 characters', async () => {
+    const user = userEvent.setup();
+    const onChangePassword = vi.fn();
+    renderForm(<ChangePasswordForm onChangePassword={onChangePassword} />);
+
+    // The browser checks minLength only on typed values: remove it to test the form's own check
+    screen.getByLabelText('New password').removeAttribute('minLength');
+    screen.getByLabelText('Repeat password').removeAttribute('minLength');
+    await fillForm(user, '12345');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('The password must contain at least 6 characters.');
+    expect(onChangePassword).not.toHaveBeenCalled();
+  });
+
+  it('does not submit when the two passwords do not match', async () => {
+    const user = userEvent.setup();
+    const onChangePassword = vi.fn();
+    renderForm(<ChangePasswordForm onChangePassword={onChangePassword} />);
+
+    await fillForm(user, 'new-secret', 'other-secret');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('The two passwords do not match.');
+    expect(onChangePassword).not.toHaveBeenCalled();
+  });
+
+  it('does not submit when the fields are empty', async () => {
+    const user = userEvent.setup();
+    const onChangePassword = vi.fn();
+    renderForm(<ChangePasswordForm onChangePassword={onChangePassword} />);
+
+    await user.click(screen.getByRole('button', { name: 'Save new password' }));
+
+    expect(screen.getByLabelText('New password')).toBeRequired();
+    expect(screen.getByLabelText('Repeat password')).toBeRequired();
+    expect(onChangePassword).not.toHaveBeenCalled();
+  });
+
+  it('disables the submit button while the change is pending', async () => {
+    const user = userEvent.setup();
+    const pending = deferred();
+    renderForm(<ChangePasswordForm onChangePassword={() => pending.promise} />);
+
+    await fillForm(user, 'new-secret');
+
+    expect(screen.getByRole('button')).toBeDisabled();
+    pending.resolve();
+    expect(await screen.findByRole('button', { name: 'Save new password' })).toBeEnabled();
+  });
+
+  it('shows the error message when the change fails', async () => {
+    const user = userEvent.setup();
+    const onChangePassword = vi.fn().mockRejectedValue(new Error('Password change failed'));
+    renderForm(<ChangePasswordForm onChangePassword={onChangePassword} />);
+
+    await fillForm(user, 'new-secret');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Password change failed');
+    expect(screen.getByRole('button', { name: 'Save new password' })).toBeEnabled();
+  });
+
+  it('hides the previous error when the form is sent again', async () => {
+    const user = userEvent.setup();
+    const onChangePassword = vi.fn().mockResolvedValue();
+    renderForm(<ChangePasswordForm onChangePassword={onChangePassword} />);
+
+    await fillForm(user, 'new-secret', 'other-secret');
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('Repeat password'));
+    await user.type(screen.getByLabelText('Repeat password'), 'new-secret');
+    await user.click(screen.getByRole('button', { name: 'Save new password' }));
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(onChangePassword).toHaveBeenCalledWith('new-secret');
   });
 });

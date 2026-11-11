@@ -93,4 +93,37 @@ describe('Navbar', () => {
     expect(navigate).toHaveBeenCalledWith('/my-reservations');
   });
 
+  describe('Navbar while the password must be changed', () => {
+    it('hides the reservation button and My reservations to a hiker', () => {
+      renderNavbar({ user: { ...HIKER, passwordToChange: true }, loggedIn: true });
+
+      expect(screen.queryByRole('button', { name: /Reserve a table|Book/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'My reservations' })).not.toBeInTheDocument();
+    });
+
+    it('hides the new reservation button and the capacity management to an employee', () => {
+      renderNavbar({ user: { ...EMPLOYEE, passwordToChange: true }, loggedIn: true });
+
+      expect(screen.queryByRole('button', { name: /New reservation/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Capacity Management' })).not.toBeInTheDocument();
+    });
+
+    it('still lets the user log out', async () => {
+      const user = userEvent.setup();
+      const onLogout = vi.fn();
+      renderNavbar({ user: { ...HIKER, passwordToChange: true }, loggedIn: true, onLogout });
+
+      await user.click(screen.getByRole('button', { name: 'Logout' }));
+
+      expect(onLogout).toHaveBeenCalled();
+    });
+
+    it('shows everything again once the password is changed', () => {
+      renderNavbar({ user: { ...HIKER, passwordToChange: false }, loggedIn: true });
+
+      expect(screen.getByRole('button', { name: /Reserve a table|Book/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'My reservations' })).toBeInTheDocument();
+    });
+  });
+
 });
