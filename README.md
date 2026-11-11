@@ -9,7 +9,7 @@
 - Email: Nodemailer
 
 ### Database tables
-- `users` contains user_id, name (text), email (text), phone (text), password_hash (text), salt (text), role (text)
+- `users` contains user_id, name (text), email (text), phone (text), password_hash (text), salt (text), role (text), password_to_change (0/1), reset_token_hash (text), reset_token_expires_at (text)
 - `slots` contains slot_id, start_at (text), end_at (text)
 - `tables` contains table_id, table_code (text), seats (number)
 - `slot_tables` contains slot_table_id, slot_id, table_id
@@ -19,6 +19,8 @@
 - `reservation_table` contains reservation_id, slot_table_id, allocated_seats (number)
 - `reservation_requirements` contains id, reservation_id, people_count (number), description (text), is_allergy (boolean)
 
+Dates and times (`start_at`, `end_at`, `created_at`) are ISO 8601 strings in UTC.
+
 ### Email confirmation format
 
 Recipient: the hiker who made the reservation (email of the user)
@@ -26,16 +28,34 @@ Recipient: the hiker who made the reservation (email of the user)
 Subject: Mountain Hut - Booking confirmation #9
 
 Content (plain text and HTML):
-- booking reference: `#` followed by `reservation_id`
-- date and time slot
-- party size
-- party requirements (allergies, diets): None if there are none
-- name of the hiker who made the reservation
+
+booking reference: # followed by `reservation_id`
+
+date and time slot
+
+party size
+
+party requirements (allergies, diets): None if there are none
+
+name of the hiker who made the reservation
+
+### Password recovery email format
+
+Recipient: the hiker who asked for the recovery
+
+Subject: Mountain Hut - Password recovery
+
+Content (plain text and HTML):
+- the link to choose a new password (`/reset-password?token=...`)
+- the link is valid for 24 hours and can be used only once
+- if the hiker did not make the request, the email can be ignored: the password does not change
+
 
 ### APIs
 
-#### Authentication
 
+
+#### Authentication
 ##### POST `/api/users`
 Creates the account of a hiker, given his personal information
 Request body:
@@ -138,9 +158,7 @@ Retrieves the booking slots for the specified date including just the slots with
 Creates a confirmed reservation for the authenticated user.
 
 - **Authentication:** required.
-
 - **Request body:**
-
 `requirements` is optional. If provided, each entry must include a positive integer `peopleCount`, a non-empty `description`, and a boolean `isAllergy`. The sum of all `peopleCount` values must not exceed `partySize`.
 
 ```json
@@ -162,13 +180,10 @@ Creates a confirmed reservation for the authenticated user.
 }
 ```
 
-
 - **Response:** `201 Created`
-
-When `requirements` is included in the request, it is included in the response:
+When requirements is included in the request, it is included in the response:
 
 ```json
-
 {
   "reservationId": 9,
   "slotId": 1,
@@ -194,11 +209,8 @@ When `requirements` is included in the request, it is included in the response:
     }
   ]
 }
-
 ```
-
-If `requirements` is omitted, the response does not include that field.
-
+If requirements is omitted, the response does not include that field.
 
 - **Errors:**
   - `400 Bad Request` — `INVALID_INPUT`
@@ -209,13 +221,12 @@ If `requirements` is omitted, the response does not include that field.
   - `409 Conflict` — `ALREADY_BOOKED`
 
 
-
 #### MH-02 - Define Slot Capacity
-
+ 
 ##### GET `/api/slots/capacity?from=YYYY-MM-DD&to=YYYY-MM-DD`
-
+ 
 Retrieves all the slots ordered by start time.
-
+ 
 - **Authentication:** required (role `employee`).
 - **Query parameters:** `from` and `to` (both optional and included, format: `YYYY-MM-DD`). They are compared with the slot start date in the mountain hut's local time. For a single day use the same value for both.
 - **Response:** `200 OK` — an array of slots containing:
@@ -225,7 +236,6 @@ Retrieves all the slots ordered by start time.
   - `hasTables`
   - `totalSeats`
   - `tables` (an array of `tableId`, `code`, `seats`)
-
 ```json
 [
   {
@@ -249,7 +259,7 @@ Retrieves all the slots ordered by start time.
   }
 ]
 ```
-
+ 
 - **Errors:**
   - `400 Bad Request` — `INVALID_DATE`
   - `400 Bad Request` — `INVALID_DATE_RANGE` (`from` after `to`)
@@ -257,21 +267,20 @@ Retrieves all the slots ordered by start time.
   - `403 Forbidden` — `FORBIDDEN`
 
 ##### POST `/api/slots`
-
+ 
 Creates a slot without tables.
-
+ 
 - **Authentication:** required (role `employee`).
 - **Request body:** `startAt` and `endAt` are ISO 8601 date-times with timezone, they are saved in UTC.
-
 ```json
 {
   "startAt": "2026-11-02T12:00:00Z",
   "endAt": "2026-11-02T13:00:00Z"
 }
 ```
+ 
 
 - **Response:** `201 Created`
-
 ```json
 {
   "slotId": 2,
@@ -282,7 +291,7 @@ Creates a slot without tables.
   "tables": []
 }
 ```
-
+ 
 - **Errors:**
   - `400 Bad Request` — `INVALID_INPUT`
   - `400 Bad Request` — `INVALID_TIME_RANGE` (`endAt` not after `startAt`)
@@ -292,18 +301,17 @@ Creates a slot without tables.
   - `409 Conflict` — `SLOT_OVERLAP`
 
 ##### POST `/api/slots/:id/tables`
-
+ 
 Adds tables of the catalog to a slot.
-
+ 
 - **Authentication:** required (role `employee`).
 - **Request body:**
-
 ```json
 {
   "tableIds": [1, 2, 3]
 }
 ```
-
+ 
 - **Response:** `201 Created` — the slot with all its tables
 - **Errors:**
   - `400 Bad Request` — `INVALID_INPUT` (invalid slot id, or `tableIds` is not a non-empty array of positive integers)
@@ -316,19 +324,18 @@ Adds tables of the catalog to a slot.
   - `409 Conflict` — `TABLE_CODE_ALREADY_IN_SLOT` (the slot already has a table with the same code, or the same table)
 
 ##### POST `/api/slots/:id/copy-tables`
-
+ 
 Copies the tables of another slot into this slot.
-
+ 
 - **Authentication:** required (role `employee`).
 - **Request body:**
-
 ```json
 {
   "fromSlotId": 1
 }
 ```
-
-- **Response:** `201 Created` — the destination slot with all its tables
+ 
+- **Response:** `201 Created` — the destination slot with all its tables 
 - **Errors:**
   - `400 Bad Request` — `INVALID_INPUT`
   - `400 Bad Request` — `SAME_SLOT`
@@ -341,9 +348,9 @@ Copies the tables of another slot into this slot.
   - `409 Conflict` — `TABLE_CODE_ALREADY_IN_SLOT`
 
 ##### GET `/api/tables`
-
+ 
 Retrieves the catalog of table types.
-
+ 
 - **Authentication:** required (role `employee`).
 - **Response:** `200 OK` — an array of tables ordered by code and seats, containing:
   - `tableId`
@@ -354,21 +361,19 @@ Retrieves the catalog of table types.
   - `403 Forbidden` — `FORBIDDEN`
 
 ##### POST `/api/tables`
-
+ 
 Adds a new table type to the catalog.
-
+ 
 - **Authentication:** required (role `employee`).
 - **Request body:** `code` is a non-empty string of at most 20 characters, `seats` an integer between 1 and 100.
-
 ```json
 {
   "code": "T1",
   "seats": 6
 }
 ```
-
+ 
 - **Response:** `201 Created`
-
 ```json
 {
   "tableId": 8,
@@ -376,13 +381,12 @@ Adds a new table type to the catalog.
   "seats": 6
 }
 ```
-
+ 
 - **Errors:**
   - `400 Bad Request` — `INVALID_INPUT`
   - `401 Unauthorized` — `UNAUTHORIZED`
   - `403 Forbidden` — `FORBIDDEN`
   - `409 Conflict` — `TABLE_ALREADY_EXISTS` (same code and seats already in the catalog)
-
 
 
 #### MH-03 - Receive Confirmation
@@ -420,14 +424,12 @@ If the party does not fit, `available` is `false` and `tableAllocation` is empty
   - `400 Bad Request` — `INVALID_INPUT` (invalid `slotId` or `partySize`)
   - `404 Not Found` — `SLOT_NOT_FOUND`
 
-
-
 #### MH-06 - Change a Booking
 
 ##### GET `/api/reservations`
-
+ 
 Retrieves all the reservations of the authenticated user, to choose the one to change.
-
+ 
 - **Authentication:** required.
 - **Response:** `200 OK` — an array ordered from the latest time slot, empty if the user has no reservations. It contains all the reservations, also the cancelled ones (they have no tables): use `status` to choose which ones to show. Each element contains:
   - `reservationId`
@@ -438,7 +440,6 @@ Retrieves all the reservations of the authenticated user, to choose the one to c
   - `createdAt` (when the reservation was made)
   - `requirements` (an array of `id`, `peopleCount`, `description`, `isAllergy`). The `id` is used to update or remove the requirement
   - `tableAllocation` (an array of `tableId`, `tableCode`, `allocatedSeats`)
-
 ```json
 [
   {
@@ -459,20 +460,16 @@ Retrieves all the reservations of the authenticated user, to choose the one to c
   }
 ]
 ```
-
+ 
 - **Errors:**
   - `401 Unauthorized` — `UNAUTHORIZED`
 
-
-
 ##### PATCH `/api/reservations/:reservationId`
-
-Modifies an existing reservation owned by the authenticated user. Changing the slot or party size recalculates the table allocation atomically. If the new party does not fit, nothing is changed and the reservation keeps its slot, its party size and its tables. Changes are admitted until 48 hours before the start of the booked slot, otherwise `EDIT_WINDOW_EXPIRED`.
+Modifies an existing reservation owned by the authenticated user. Changing the slot or party size recalculates the table allocation atomically. If the new party does not fit, nothing is changed and the reservation keeps its slot, its party size and its tables. 
 
 - **Authentication:** required.
 - **Path parameter:** `reservationId` (positive integer).
-- **Request body:** at least one field must be provided. The `requirements` object and each of its operations (`add`, `update`, `remove`) are optional. After the change the party size cannot be reduced under the number of people with requirements unless the requirements are reduced in the same request.
-
+- **Request body:** at least one field must be provided. The `requirements` object and each of its operations (`add`, `update`, `remove`) are optional . After the change the party size cannot be reduced under the number of people with requirements unless the requirements are reduced in the same request. :
 ```json
 {
   "slotId": 7,
@@ -497,9 +494,7 @@ Modifies an existing reservation owned by the authenticated user. Changing the s
   }
 }
 ```
-
 - **Response:** `200 OK` — containing the complete updated reservation:
-
 ```json
 {
   "reservationId": 9,
@@ -523,7 +518,6 @@ Modifies an existing reservation owned by the authenticated user. Changing the s
   ]
 }
 ```
-
 - **Errors:**
   - `400 Bad Request` — `INVALID_INPUT`
   - `401 Unauthorized` — `UNAUTHORIZED`
@@ -536,3 +530,193 @@ Modifies an existing reservation owned by the authenticated user. Changing the s
   - `409 Conflict` — `BOOKING_TOO_LATE`
   - `409 Conflict` — `NO_AVAILABILITY`
   - `409 Conflict` — `ALREADY_BOOKED`
+
+
+
+#### MH-07 - Reserve for a Hiker
+
+An employee enters a reservation received at the hut, by phone or by message. The hiker can be:
+- a **registered hiker**, found by name, email or phone;
+- a **new hiker**, registered together with the reservation: a regular account that can later use the web interface. The password is randomly generated and shown once to the employee, who tells it to the hiker (e.g. verbally). The hiker must change it at the next login;
+- a **temporary hiker**: only name and optional phone. No account is created and the hiker cannot log in.
+
+The only time constraint for an employee is that the reservation cannot be made after the time slot starts (hikers still need 2 hours, see MH-01).
+
+##### GET `/api/hikers?search=text`
+
+Finds the registered hikers whose name, email or phone contains the text (case insensitive, spaces around the text are ignored). Employees and wardens are never returned.
+
+- **Authentication:** employee only.
+- **Query parameter:** `search` (required, not blank).
+- **Response:** `200 OK` — an array ordered by name, empty if nobody matches. Each element contains:
+  - `userId`
+  - `name`
+  - `email`
+  - `phone` (`null` if not given)
+
+```json
+[
+  {
+    "userId": 3,
+    "name": "Anna Winden",
+    "email": "anna@mountainhut.test",
+    "phone": "+393401234567"
+  }
+]
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT` (missing, blank or repeated `search`)
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN` (the user is not an employee)
+
+##### POST `/api/reservations` (employee)
+
+Same as MH-01, plus `hiker` in the request body (required when the user is an employee, ignored for hikers). An employee can reserve until the slot starts.
+
+- **Authentication:** employee.
+- `hiker` can be:
+  - `{ "userId" }` — a registered hiker (only users with role `hiker`)
+  - `{ "name", "email", "phone" }` — a new hiker, registered with the reservation. All fields are required. The account and the reservation are created in the same transaction: if the reservation fails, no account is created
+  - `{ "name", "phone" }` — a temporary hiker who cannot log in (`phone` is optional)
+- **Request body:**
+
+```json
+{
+  "slotId": 1,
+  "partySize": 3,
+  "hiker": { "name": "Mario Rossi", "email": "mario@example.com", "phone": "3331234567" }
+}
+```
+
+- **Response:** `201 Created` — the reservation of MH-01, plus:
+  - `hiker` (`userId`, `name`, `email`, `phone`). For a temporary hiker `userId` and `email` are `null`
+  - `temporaryPassword` — only for a new hiker: the random password, returned only in this response (only its hash is saved). The hiker must change it at the first login
+
+```json
+{
+  "reservationId": 12,
+  "slotId": 1,
+  "partySize": 3,
+  "status": "confirmed",
+  "hiker": {
+    "userId": 9,
+    "name": "Mario Rossi",
+    "email": "mario@example.com",
+    "phone": "3331234567"
+  },
+  "tableAllocation": [
+    { "tableId": 2, "tableCode": "T2", "allocatedSeats": 3 }
+  ],
+  "temporaryPassword": "q3Zr8_KmP0xA"
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT` (missing or invalid `slotId`, `partySize`, `requirements` or `hiker`)
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `404 Not Found` — `SLOT_NOT_FOUND`
+  - `404 Not Found` — `HIKER_NOT_FOUND` (`userId` does not exist or is not a hiker)
+  - `409 Conflict` — `BOOKING_TOO_LATE` (the slot has already started)
+  - `409 Conflict` — `NO_AVAILABILITY`
+  - `409 Conflict` — `ALREADY_BOOKED` (the registered hiker already has a reservation in the slot)
+  - `409 Conflict` — `EMAIL_ALREADY_USED` (the email of the new hiker is already registered)
+
+The confirmation email of MH-03 is sent to registered and new hikers. A temporary hiker has no email, so no confirmation is sent.
+
+##### Slots and availability for employees
+
+- `GET /api/slots?date=YYYY-MM-DD` (MH-01): for an employee `bookingAllowed` is `true` until the slot starts, and `restrictionReason` is `Already started` after that.
+- `GET /api/slots/:slotId/availability?partySize=N` (MH-04): for an employee `available` can be `true` until the slot starts.
+
+##### Mandatory password change
+
+`POST /api/sessions` and `GET /api/sessions/current` also return `passwordToChange`: `true` for a hiker registered by an employee who has not changed the temporary password yet.
+
+```json
+{
+  "user_id": 9,
+  "name": "Mario Rossi",
+  "email": "mario@example.com",
+  "role": "hiker",
+  "phone": "3331234567",
+  "passwordToChange": true
+}
+```
+
+While `passwordToChange` is `true`, every API answers `403 Forbidden` — `PASSWORD_CHANGE_REQUIRED`, except:
+- `POST /api/sessions` (login)
+- `GET /api/sessions/current`
+- `DELETE /api/sessions/current` (logout)
+- `PUT /api/users/password`
+
+##### PUT `/api/users/password`
+
+Changes the password of the logged-in user and sets `passwordToChange` to `false`. The session is updated too, so the user can use the site at once.
+
+- **Authentication:** required.
+- **Request body:**
+
+```json
+{
+  "newPassword": "new-secret"
+}
+```
+
+- **Response:** `200 OK` — the user, with `passwordToChange: false`
+
+```json
+{
+  "user_id": 9,
+  "name": "Mario Rossi",
+  "email": "mario@example.com",
+  "role": "hiker",
+  "phone": "3331234567",
+  "passwordToChange": false
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` — "The password must contain at least 6 characters."
+  - `401 Unauthorized` — `UNAUTHORIZED`
+
+##### POST `/api/users/password-reset`
+
+Password recovery: sends to the hiker an email with a link to choose a new password. The link contains a random token, is valid for 24 hours and can be used only once (see section 3.8 of NIST SP 800-63A-4). Only the hash of the token is saved. The current password keeps working until the link is used, and a new request replaces the previous link.
+
+- **Authentication:** not required.
+- **Request body:**
+
+```json
+{
+  "email": "mario@example.com"
+}
+```
+
+- **Response:** `204 No Content` — always the same answer, also when the email is not registered or does not belong to a hiker, so it does not tell which emails are registered.
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT` (missing or blank email)
+
+The link points to the frontend: `<FRONTEND_URL>/reset-password?token=...` (`FRONTEND_URL` in `backend/.env`, default `CORS_ORIGIN` or `http://localhost:5173`).
+
+##### POST `/api/users/password-reset/confirm`
+
+Sets the new password with the token of the recovery link, invalidates the token and sets `passwordToChange` to `false`.
+
+- **Authentication:** not required.
+- **Request body:**
+
+```json
+{
+  "token": "inYg7OW91ilxEBYoPjm18AUjxsocfwHRVww67peMtdg",
+  "newPassword": "new-secret"
+}
+```
+
+- **Response:** `204 No Content`
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT` (missing token)
+  - `400 Bad Request` — "The password must contain at least 6 characters."
+  - `400 Bad Request` — `INVALID_OR_EXPIRED_TOKEN` (unknown, already used or expired token)
+
+
