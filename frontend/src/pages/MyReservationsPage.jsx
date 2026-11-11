@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getHikerReservations, updateHikerReservation } from "../api/booking_api";
+import { getHikerReservations, updateHikerReservation, cancelHikerReservation } from "../api/booking_api";
 import { listAvailableSlots } from "../api/reservation_api";
 
 const dateKey = (date) => {
@@ -35,6 +35,24 @@ const isEditable = (reservation) => {
     return Number.isFinite(startAt) && startAt - Date.now() >= 48 * 60 * 60 * 1000;
 };
 
+const isCancellable = (reservation) => {
+    if (!["confirmed", "waiting"].includes(reservation.status)) {
+        return false;
+    }
+
+    // Optional rule: prevent cancellation once the booked slot has started.
+    // Currently disabled because hikers can cancel a reservation at any time.
+    /*
+    const startAt = new Date(reservation.startAt).getTime();
+
+    if (!Number.isFinite(startAt) || Date.now() >= startAt) {
+        return false;
+    }
+    */
+
+    return true;
+};
+
 const sameRequirement = (left, right) =>
     left.peopleCount === right.peopleCount &&
     left.description.trim() === right.description.trim() &&
@@ -43,7 +61,7 @@ const sameRequirement = (left, right) =>
 const statusClass = {
     confirmed: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
     waiting: "border-amber-400/30 bg-amber-400/10 text-amber-300",
-    cancelled: "border-slate-400/30 bg-slate-400/10 text-slate-300",
+    cancelled: "border-red-400/40 bg-red-400/15 text-red-300",
 };
 
 export const MyReservationsPage = () => {
@@ -66,6 +84,9 @@ export const MyReservationsPage = () => {
     const [formError, setFormError] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const [notice, setNotice] = useState("");
+    const [reservationToCancel, setReservationToCancel] = useState(null);
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [cancelError, setCancelError] = useState("");
 
     const reloadReservations = async () => {
         setLoadError("");
@@ -153,6 +174,61 @@ export const MyReservationsPage = () => {
         setSlotsLoading(false);
         setFormError("");
         setSlotsError("");
+    };
+
+    const openCancelDialog = (reservation) => {
+        setReservationToCancel(reservation);
+        setCancelError("");
+        setNotice("");
+    };
+
+    const closeCancelDialog = () => {
+        if (isCancelling) return;
+
+        setReservationToCancel(null);
+        setCancelError("");
+    };
+
+    const confirmCancellation = async () => {
+        if (!reservationToCancel || isCancelling) return;
+
+        setIsCancelling(true);
+        setCancelError("");
+
+        try {
+            await cancelHikerReservation(reservationToCancel.reservationId);
+
+            const cancelledReservationId = reservationToCancel.reservationId;
+
+            setReservationToCancel(null);
+            setNotice(`Reservation #${cancelledReservationId} has been cancelled successfully.`);
+
+            // Update the reservation immediately in the UI.
+            setReservations((current) =>
+                current.map((reservation) =>
+                    reservation.reservationId === cancelledReservationId
+                        ? {
+                            ...reservation,
+                            status: "cancelled",
+                            tableAllocation: [],
+                        }
+                        : reservation
+                )
+            );
+
+            // Synchronize the list with the backend.
+            try {
+                await reloadReservations();
+            } catch (error) {
+                setLoadError(
+                    `The reservation was cancelled, but the list could not be refreshed: ${error.message}`
+                );
+            }
+        } catch (error) {
+            setCancelError(error.message || "Could not cancel this reservation.");
+        } finally {
+            setIsCancelling(false);
+        }
     };
 
     const addRequirement = () => {
@@ -313,46 +389,84 @@ export const MyReservationsPage = () => {
                     <div className="space-y-4">
                         {reservations.map((reservation) => {
                             const editable = isEditable(reservation);
+                            const isCancelled = reservation.status === "cancelled";
                             return (
-                                <article key={reservation.reservationId} className="rounded-2xl border border-white/10 bg-[#0e1622]/95 p-5 shadow-lg sm:p-6">
+                                <article
+                                    key={reservation.reservationId}
+                                    className="rounded-2xl border border-white/10 bg-[#0e1622]/95 p-5 shadow-lg sm:p-6"
+                                >
                                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-3">
-                                                <h2 className="text-lg font-semibold text-white">
+                                                <h2 className={`text-lg font-semibold text-white ${isCancelled ? "opacity-60" : ""}`}>
                                                     Reservation #{reservation.reservationId}
                                                 </h2>
                                                 <span className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusClass[reservation.status] || statusClass.cancelled}`}>
                                                     {reservation.status}
                                                 </span>
                                             </div>
-                                            <p className="mt-3 text-slate-200">{formatDateTime(reservation.startAt)}</p>
-                                            <p className="mt-1 text-sm text-slate-400">
+                                            <p className={`mt-3 text-slate-200 ${isCancelled ? "opacity-60" : ""}`}>
+                                                {formatDateTime(reservation.startAt)}
+                                            </p>
+                                            <p className={`mt-1 text-sm text-slate-400 ${isCancelled ? "opacity-60" : ""}`}>
                                                 {reservation.partySize} {reservation.partySize === 1 ? "guest" : "guests"}
                                                 {reservation.tableAllocation?.length > 0 && (
                                                     <> · Tables {reservation.tableAllocation.map((table) => table.tableCode).join(", ")}</>
                                                 )}
                                             </p>
                                         </div>
-                                        {editable ? (
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm gap-2 border-sky-300 bg-sky-300 text-slate-950 hover:border-sky-200 hover:bg-sky-200"
-                                                onClick={() => openEditor(reservation)}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4Z" /></svg>
-                                                Change reservation
-                                            </button>
-                                        ) : (
-                                            <p className="text-sm text-slate-400">
-                                                {reservation.status === "cancelled"
-                                                    ? "Cancelled reservations cannot be changed."
-                                                    : "Changes are no longer allowed less than 48 hours before the booked date."}
-                                            </p>
-                                        )}
+                                        <div className="flex flex-wrap items-center justify-end gap-3">
+                                            {editable && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm gap-2 border-sky-300 bg-sky-300 text-slate-950 hover:border-sky-200 hover:bg-sky-200"
+                                                    onClick={() => openEditor(reservation)}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4Z" /></svg>
+                                                    Change reservation
+                                                </button>
+                                            )}
+
+                                            {isCancellable(reservation) && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm gap-2 border-red-400 bg-red-400 text-slate-950 hover:border-red-300 hover:bg-red-300"
+                                                    onClick={() => openCancelDialog(reservation)}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v5" /><path d="M14 11v5" /></svg>
+                                                    Cancel booking
+                                                </button>
+                                            )}
+
+                                            {!isCancellable(reservation) && (
+                                                <p className="text-sm text-slate-400">
+                                                    {reservation.status === "cancelled"
+                                                        ? "This reservation has been cancelled."
+                                                        : "This reservation cannot be cancelled."}
+
+                                                    {/*
+                                                     Optional rule: show a specific message when the booked slot has started.
+                                                     Enable this together with the time restriction in isCancellable().
+                                                     {reservation.status !== "cancelled" &&
+                                                     new Date(reservation.startAt).getTime() <= Date.now() &&
+                                                     " The booked time slot has already started."}
+                                                     */}
+                                                </p>
+                                            )}
+
+                                            {!editable && isCancellable(reservation) && (
+                                                <p className="w-full text-sm text-slate-400 sm:text-right">
+                                                    Changes are no longer allowed less than 48 hours before the booked date.
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {reservation.requirements?.length > 0 && (
-                                        <div className="mt-5 border-t border-white/10 pt-4">
+                                        <div
+                                            className={`mt-5 border-t border-white/10 pt-4 ${isCancelled ? "opacity-60" : ""
+                                                }`}
+                                        >
                                             <h3 className="mb-2 text-sm font-semibold text-slate-300">Party requirements</h3>
                                             <ul className="space-y-1 text-sm text-slate-400">
                                                 {reservation.requirements.map((requirement) => (
@@ -367,6 +481,68 @@ export const MyReservationsPage = () => {
                                 </article>
                             );
                         })}
+                    </div>
+                )}
+
+                {reservationToCancel && (
+                    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+                        <section
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="cancel-reservation-title"
+                            className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0e1622] p-6 shadow-2xl"
+                        >
+                            <div className="mb-5">
+                                <h2
+                                    id="cancel-reservation-title"
+                                    className="text-2xl font-bold text-white"
+                                >
+                                    Cancel reservation?
+                                </h2>
+
+                                <p className="mt-3 text-slate-300">
+                                    Are you sure you want to cancel reservation
+                                    {" "}#{reservationToCancel.reservationId}?
+                                </p>
+
+                                <p className="mt-2 text-sm text-slate-400">
+                                    {formatDateTime(reservationToCancel.startAt)}
+                                </p>
+
+                                <p className="mt-4 text-sm text-red-300">
+                                    This action cannot be undone.
+                                </p>
+                            </div>
+
+                            {cancelError && (
+                                <p
+                                    role="alert"
+                                    className="mb-5 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200"
+                                >
+                                    {cancelError}
+                                </p>
+                            )}
+
+                            <div className="flex flex-col-reverse justify-end gap-3 sm:flex-row">
+                                <button
+                                    type="button"
+                                    className="btn border border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/20"
+                                    onClick={closeCancelDialog}
+                                    disabled={isCancelling}
+                                >
+                                    Keep reservation
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="btn border-red-400 bg-red-400 text-slate-950 hover:border-red-300 hover:bg-red-300"
+                                    onClick={confirmCancellation}
+                                    disabled={isCancelling}
+                                >
+                                    {isCancelling ? "Cancelling…" : "Yes, cancel booking"}
+                                </button>
+                            </div>
+                        </section>
                     </div>
                 )}
 
