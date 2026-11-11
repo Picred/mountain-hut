@@ -19,7 +19,8 @@ export const getUser = (email, password) => {
                 name: row.name,
                 email: row.email, 
                 role: row.role,
-                phone: row.phone
+                phone: row.phone,
+                passwordToChange: row.password_to_change === 1
             };
 
             crypto.scrypt(password, row.salt, 32, (err, hashedPassword) => {
@@ -86,3 +87,50 @@ export const createUser = (name, email, phone, password, role = 'hiker') => {
         });
     });
 };
+
+
+export const changePassword = (user_id, newPassword, passwordToChange = 0) => {
+    return new Promise((resolve, reject)=> {
+        const salt = crypto.randomBytes(16).toString('hex');
+
+        crypto.scrypt(newPassword, salt, 32, (err, hashedPassword) => {
+            if (err) return reject(err);
+
+            const sql = `
+                UPDATE users
+                SET salt = ?, password_hash = ?, password_to_change = ?
+                WHERE user_id = ?
+            `;
+
+            const passwordHashHex = hashedPassword.toString('hex');
+
+            db.run(sql, [salt, passwordHashHex, passwordToChange, user_id], function (err) {
+                if (err) return reject(err);
+                resolve(this.changes === 1);
+            });
+        });
+        
+    })
+}
+
+export const getHikerByEmail = (email) => {
+    return new Promise((resolve,reject) => {
+        const sql = `
+        SELECT user_id, name, email, role
+        FROM users
+        WHERE email = ? AND role = 'hiker'
+        `
+
+        db.get(sql, [email], (err,row) => {
+            if(err) return reject(err);
+            if(!row) return resolve(null);
+            return resolve({
+                user_id: row.user_id,
+                name: row.name,
+                email: row.email,
+                role: row.role,
+            })
+            
+        })
+    })
+}

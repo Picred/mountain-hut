@@ -1,5 +1,5 @@
 import { Router } from 'express';
-
+import crypto from 'node:crypto';
 import { makeReservation, updateReservation } from '../models/dao/reservationDAO.js';
 import { hashPassword } from '../models/dao/authenticationDAO.js';
 import { sendBookingConfirmation, sendChangesConfirmation } from '../services/confirmation.js';
@@ -13,7 +13,8 @@ const isText = value => typeof value === 'string' && value.trim().length > 0;
 /**
  * Reads the hiker an employee is booking for:
  * - { userId }: a registered hiker
- * - { name, email, phone, password }: a new hiker, registered with the reservation
+ * - { name, email, phone }: a new hiker, registered with the reservation with a random
+ *   password, that must be changed at the first login
  * - { name, phone? }: a temporary hiker, who cannot log in
  */
 const readHiker = async (hiker, employeeId) => {
@@ -28,14 +29,16 @@ const readHiker = async (hiker, employeeId) => {
         return { userId: hiker.userId, byEmployee: { employeeId } };
     }
 
-    if (hiker.email !== undefined || hiker.password !== undefined) {
-        const { name, email, phone, password } = hiker;
-        if (![name, email, phone, password].every(isText) || password.length < 6) {
+    if (hiker.email !== undefined) {
+        const { name, email, phone } = hiker;
+        if (![name, email, phone].every(isText)) {
             throw new BadRequestError('INVALID_INPUT');
         }
+        const password = crypto.randomBytes(9).toString('base64url');
         const { salt, passwordHash } = await hashPassword(password);
         return {
             userId: null,
+            temporaryPassword: password,
             byEmployee: {
                 employeeId,
                 newHiker: { name: name.trim(), email: email.trim(), phone: phone.trim(), salt, passwordHash }
@@ -82,6 +85,9 @@ router.post('/', async (req, res) => {
     if (req.user.role === 'employee') {
         const booking = await readHiker(hiker, userId);
         reservation = await makeReservation(slotId, booking.userId, partySize, requirements, booking.byEmployee);
+        if (booking.temporaryPassword) {
+            reservation.temporaryPassword = booking.temporaryPassword;
+        }
     } else {
         reservation = requirements === undefined
             ? await makeReservation(slotId, userId, partySize)
@@ -89,7 +95,7 @@ router.post('/', async (req, res) => {
     }
     // no await!!
     sendBookingConfirmation(reservation.reservationId);
-    
+
     return res.status(201).json(reservation);
 });
 

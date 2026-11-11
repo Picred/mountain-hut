@@ -26,20 +26,22 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
           <div className="flex items-center gap-2 sm:gap-3">
 
             {/* CTA Principale: Prenota un tavolo */}
-            <button
-              className="btn btn-sm bg-sky-300 hover:bg-sky-400 border-sky-300 hover:border-sky-400 text-slate-950 font-semibold shadow-md hover:shadow-lg transition-all gap-1.5"
-              onClick={() =>
-                navigate(user?.role === "employee" ? "/employee/reservations" : "/reservations")
-              }
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-plus-2 preview-icon"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M10 15h4" /><path d="M12 13v4" /></svg>
-              <span className="hidden sm:inline">
-                {user?.role === "employee" ? "New reservation" : "Reserve a table"}
-              </span>
-              <span className="sm:hidden">
-                {user?.role === "employee" ? "New" : "Book"}
-              </span>
-            </button>
+            {!user?.passwordToChange && (
+              <button
+                className="btn btn-sm bg-sky-300 hover:bg-sky-400 border-sky-300 hover:border-sky-400 text-slate-950 font-semibold shadow-md hover:shadow-lg transition-all gap-1.5"
+                onClick={() =>
+                  navigate(user?.role === "employee" ? "/employee/reservations" : "/reservations")
+                }
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-calendar-plus-2 preview-icon"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M10 15h4" /><path d="M12 13v4" /></svg>
+                <span className="hidden sm:inline">
+                  {user?.role === "employee" ? "New reservation" : "Reserve a table"}
+                </span>
+                <span className="sm:hidden">
+                  {user?.role === "employee" ? "New" : "Book"}
+                </span>
+              </button>
+            )}
 
             {/* Pulsante Login secondario */}
             {!loggedIn && (
@@ -89,7 +91,7 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
                     My Account
                   </li>
 
-                  {user?.role === "employee" && (
+                  {user?.role === "employee" && !user?.passwordToChange && (
                     <li>
                       <button
                         type="button"
@@ -102,7 +104,7 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
                     </li>
                   )}
 
-                  {user?.role === "hiker" && (
+                  {user?.role === "hiker" && !user?.passwordToChange && (
                     <li>
                       <button
                         type="button"
@@ -128,4 +130,4 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
       </div>
     </header >
   )
-}
+}

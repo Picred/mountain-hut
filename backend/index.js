@@ -12,6 +12,7 @@ import hikerRoutes from './api/hikerRoutes.js';
 
 import { errorHandler } from './utils/errorHandler.js';
 import capacityRoutes from './api/capacityRoutes.js';
+import blockUntilPasswordChanged from './middlewares/changePassword-middleware.js';
 
 
 const app = express();
@@ -38,6 +39,9 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Global middleware
+app.use(blockUntilPasswordChanged);
+
 // API routes.
 app.use(authenticationRoutes);
 app.use('/api/slots', slotRoutes);
@@ -45,6 +49,7 @@ app.use('/api/reservations', reservationRoutes);
 app.use('/api', hikerReservationsRoute);
 app.use('/api/hikers', hikerRoutes);
 app.use(capacityRoutes);
+
 
 // Centralized error handler (must be registered after the routes).
 app.use(errorHandler);
