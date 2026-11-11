@@ -4,10 +4,15 @@ const inputClass =
   "w-full rounded-xl border border-white/10 bg-[#172333] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-sky-300/60 focus:ring-1 focus:ring-sky-300/30";
 
 /**
- * Shown after the login with a temporary password: the hiker must choose a new
- * password before using the site.
+ * Form to choose a new password, used in two cases:
+ * - after the login with a temporary password (the hiker must change it);
+ * - from the link of the password recovery email (/reset-password?token=...).
+ * The subtitle explains the case.
  */
-export default function ChangePasswordForm({ onChangePassword }) {
+export default function ChangePasswordForm({
+  onChangePassword,
+  subtitle = "You logged in with a temporary password. Choose a new one to continue.",
+}) {
   const [formData, setFormData] = useState({ password: '', repeatPassword: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -45,7 +50,7 @@ export default function ChangePasswordForm({ onChangePassword }) {
             Choose a new password
           </h2>
           <p className="mt-3 text-sm text-slate-400">
-            You logged in with a temporary password. Choose a new one to continue.
+            {subtitle}
           </p>
         </div>
 
