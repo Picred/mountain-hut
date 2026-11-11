@@ -124,9 +124,6 @@ async function confirmPasswordReset(token, newPassword) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    if (errorData.error === 'INVALID_OR_EXPIRED_TOKEN') {
-      throw new Error('This link is invalid or has expired. Request a new one.');
-    }
     if (errorData.error === 'INVALID_OR_EXPIRED_TOKEN' || errorData.error === 'INVALID_INPUT') {
       throw new Error('This link is invalid or has expired. Request a new one.');
     }

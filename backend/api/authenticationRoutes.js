@@ -174,26 +174,4 @@ router.post("/api/users/password-reset/confirm", async (req, res, next) => {
     return res.status(204).end();
 });
 
-// 7. POST /api/users/password-reset/confirm --> Sets the new password with the token of the link
-router.post("/api/users/password-reset/confirm", async (req, res, next) => {
-    const { token, newPassword } = req.body ?? {};
-
-    if (typeof token !== 'string' || token.length === 0) {
-        return next(new BadRequestError("INVALID_INPUT"));
-    }
-    if (typeof newPassword !== 'string' || newPassword.length < 6) {
-        return next(new BadRequestError("The password must contain at least 6 characters."));
-    }
-
-    const user = await getUserByResetToken(hashToken(token));
-    if (!user) {
-        return next(new BadRequestError("INVALID_OR_EXPIRED_TOKEN"));
-    }
-
-    // Saves the new password and invalidates the token: the link works only once
-    await changePassword(user.user_id, newPassword);
-
-    return res.status(204).end();
-});
-
 export default router;
