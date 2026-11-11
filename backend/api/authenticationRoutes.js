@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import passport from "passport";
 import LocalStrategy from "passport-local";
-import { getUser, createUser } from '../models/dao/authenticationDAO.js';
+import { getUser, createUser, changePassword, getHikerByEmail } from '../models/dao/authenticationDAO.js';
 import ensureAuthenticated from '../middlewares/auth-middleware.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import ConflictError from '../models/errors/ConflictError.js';
 import UnauthorizedError from '../models/errors/UnauthorizedError.js';
+import NotFoundError from '../models/errors/NotFoundError.js';
+import crypto from 'node:crypto';
 
 const router = Router();
 
@@ -97,6 +99,51 @@ router.delete("/api/sessions/current", ensureAuthenticated, (req, res, next) => 
         if (err) return next(err);
         return res.status(204).end();
     });
+});
+
+// 5. PUT /api/users/password --> Password change of the logged user
+router.put("/api/users/password", ensureAuthenticated, async (req, res, next) => {
+    const { newPassword } = req.body ?? {};
+
+    if (typeof newPassword !== 'string' || newPassword.length < 6) {
+        return next(new BadRequestError("The password must contain at least 6 characters."));
+    }
+
+    const updated = await changePassword(req.user.user_id, newPassword);
+    if (!updated) {
+        return next(new UnauthorizedError("UNAUTHORIZED"));
+    }
+
+    const user = { ...req.user, passwordToChange: false };
+    req.login(user, (err) => {
+        if (err) return next(err);
+        return res.status(200).json(user);
+    });
+});
+
+// authenticationRoutes.js
+// 6. POST /api/users/password-reset --> Sends a new temporary password by email
+router.post("/api/users/password-reset", async (req, res, next) => {
+    const { email } = req.body ?? {};
+
+    if (typeof email !== 'string' || email.trim().length === 0) {
+        return next(new BadRequestError("INVALID_INPUT"));
+    }
+
+    const hiker = await getHikerByEmail(email.trim());
+
+    if (hiker) {
+        const randomPassword = crypto.randomBytes(9).toString('base64url');
+
+        // Save the new password only if the hiker received it
+        const sent = await sendPasswordRecovery(hiker.email, hiker.name, randomPassword);
+        if (sent) {
+            await changePassword(hiker.user_id, randomPassword, 1);
+        }
+    }
+
+    // Always the same answer, so it does not tell whether the email is registered
+    return res.status(204).end();
 });
 
 export default router;

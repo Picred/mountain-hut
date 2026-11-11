@@ -134,7 +134,8 @@ CREATE TABLE users (
   password_hash TEXT    NOT NULL,
   salt          TEXT    NOT NULL,
   role          TEXT    NOT NULL DEFAULT 'hiker'
-                CHECK (role IN ('hiker', 'employee', 'warden'))
+                CHECK (role IN ('hiker', 'employee', 'warden')),
+  password_to_change INTEGER NOT NULL DEFAULT 0 CHECK (password_to_change IN (0, 1))
 );
 
 CREATE TABLE slots (

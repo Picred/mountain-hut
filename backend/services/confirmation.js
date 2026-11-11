@@ -27,7 +27,7 @@ const formatRequirements = (requirements) => {
         .join('; ');
 };
 
-const escapeHtml = (value) =>
+export const escapeHtml = (value) =>
     String(value)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
