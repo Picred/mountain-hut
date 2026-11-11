@@ -1,10 +1,10 @@
 import ForbiddenError from "../models/errors/ForbiddenError.js";
 
 const ALLOWED = [
-    { method: 'POST',   path: '/api/sessions' },          // login
-    { method: 'GET',    path: '/api/sessions/current' },  // who is logged in
-    { method: 'DELETE', path: '/api/sessions/current' },  // logout
-    { method: 'PUT',    path: '/api/users/password' },    // change password (adapt to your route)
+    { method: 'POST',   path: '/api/sessions' },         
+    { method: 'GET',    path: '/api/sessions/current' },  
+    { method: 'DELETE', path: '/api/sessions/current' },  
+    { method: 'PUT',    path: '/api/users/password' },    
 ];
 
 const blockUntilPasswordChanged = (req, res, next) => {

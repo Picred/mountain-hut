@@ -13,8 +13,8 @@ const isText = value => typeof value === 'string' && value.trim().length > 0;
 /**
  * Reads the hiker an employee is booking for:
  * - { userId }: a registered hiker
- + * - { name, email, phone }: a new hiker, registered with the reservation with a random
-+ *   password, that must be changed at the first login
+ * - { name, email, phone }: a new hiker, registered with the reservation with a random
+ *   password, that must be changed at the first login
  * - { name, phone? }: a temporary hiker, who cannot log in
  */
 const readHiker = async (hiker, employeeId) => {

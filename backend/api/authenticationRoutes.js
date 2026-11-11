@@ -6,8 +6,8 @@ import ensureAuthenticated from '../middlewares/auth-middleware.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import ConflictError from '../models/errors/ConflictError.js';
 import UnauthorizedError from '../models/errors/UnauthorizedError.js';
-import NotFoundError from '../models/errors/NotFoundError.js';
 import crypto from 'node:crypto';
+import { sendPasswordRecovery } from '../services/passwordRecovery.js';
 
 const router = Router();
 
