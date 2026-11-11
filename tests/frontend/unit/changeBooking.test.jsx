@@ -27,7 +27,8 @@ import { MyReservationsPage } from '../../../frontend/src/pages/MyReservationsPa
 const reservation = {
     reservationId: 1,
     slotId: 10,
-    startAt: '2026-12-20T18:00:00',
+    // More than 48 hours ahead, so the reservation can still be changed
+    startAt: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
     partySize: 2,
     status: 'confirmed',
@@ -91,6 +92,22 @@ describe('MyReservationsPage', () => {
         expect(await screen.findByRole('alert')).toHaveTextContent(
             'Network error'
         );
+    });
+
+    it('does not allow changes less than 48 hours before the booked slot', async () => {
+        bookingAPI.getHikerReservations.mockResolvedValue([{
+            ...reservation,
+            startAt: new Date(Date.now() + 47 * 60 * 60 * 1000).toISOString(),
+        }]);
+
+        render(<MyReservationsPage />);
+
+        expect(
+            await screen.findByText('Changes are no longer allowed less than 48 hours before the booked date.')
+        ).toBeInTheDocument();
+        expect(
+            screen.queryByRole('button', { name: 'Change reservation' })
+        ).not.toBeInTheDocument();
     });
 
     it('opens the reservation editor', async () => {

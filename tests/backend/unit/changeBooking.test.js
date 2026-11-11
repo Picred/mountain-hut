@@ -101,7 +101,7 @@ describe("Update reservation", () => {
                         userId: 3,
                         partySize: 5,
                         status: 'confirmed',
-                        createdAt: new Date().toISOString()
+                        secondsUntilStart: 72 * 60 * 60
                     };
             }
 
@@ -205,7 +205,7 @@ describe("Update reservation", () => {
         dbGet.mockImplementation(async (query) => {
             const q = query.toUpperCase();
             if (q.includes('LIMIT 1')) return null;
-            if (q.includes('FROM RESERVATIONS')) return { reservationId: 1, userId: 3, partySize: 5, status: 'confirmed', createdAt: new Date().toISOString() };
+            if (q.includes('FROM RESERVATIONS')) return { reservationId: 1, userId: 3, partySize: 5, status: 'confirmed', secondsUntilStart: 72 * 60 * 60 };
             if (q.includes('FROM SLOTS')) return { slotId: 2, secondsUntilStart: 10000 };
             return null;
         });
@@ -221,14 +221,26 @@ describe("Update reservation", () => {
         await expect(updateReservation(99, 3, { partySize: 2 })).rejects.toThrow('RESERVATION_NOT_FOUND');
     });
 
-    it("Throws an error if the 48-hour edit window is expired (ConflictError)", async () => {
-        const oldDate = new Date();
-        oldDate.setDate(oldDate.getDate() - 3);
+    it("Throws an error if the booked slot starts in less than 48 hours (ConflictError)", async () => {
         dbGet.mockResolvedValueOnce({
-            reservationId: 1, userId: 3, status: 'confirmed', createdAt: oldDate.toISOString()
+            reservationId: 1, userId: 3, status: 'confirmed', secondsUntilStart: 47 * 60 * 60
         });
 
         await expect(updateReservation(1, 3, { partySize: 2 })).rejects.toThrow('EDIT_WINDOW_EXPIRED');
+    });
+
+    it("Still admits changes exactly 48 hours before the booked slot", async () => {
+        dbGet.mockImplementation(async (query) => {
+            const q = query.toUpperCase();
+            if (q.includes('LIMIT 1')) return null;
+            if (q.includes('FROM RESERVATIONS')) return { reservationId: 1, userId: 3, partySize: 5, status: 'confirmed', secondsUntilStart: 48 * 60 * 60 };
+            if (q.includes('FROM SLOTS')) return { slotId: 2, secondsUntilStart: 10000 };
+            return null;
+        });
+        dbAll.mockResolvedValue([]);
+
+        // The edit window is passed, so the change fails later, on the availability check
+        await expect(updateReservation(1, 3, { slotId: 2, partySize: 7 })).rejects.toThrow('NO_AVAILABILITY');
     });
 
 });
