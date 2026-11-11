@@ -121,8 +121,9 @@ describe('POST /api/sessions', () => {
     const res = await login(ANNA.email, 'password');
 
     expect(res.status).toBe(201);
-    expect(res.body).toEqual(ANNA);
-    expect(await currentUser(res.cookie)).toMatchObject({ status: 200, body: ANNA });
+    const body = res.body;
+    expect(body).toEqual({...ANNA, passwordToChange: false});
+    expect(await currentUser(res.cookie)).toMatchObject({ status: 200, body: body });
   });
 
   it('returns 401 with an error message when the password is wrong', async () => {

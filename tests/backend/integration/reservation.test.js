@@ -326,7 +326,6 @@ describe('POST /api/reservations', () => {
       name: 'New Hiker',
       email: 'new-hiker@mountainhut.test',
       phone: '0123456789',
-      password: 'new-password',
     };
 
     const res = await book(cookie, {
@@ -341,8 +340,9 @@ describe('POST /api/reservations', () => {
       email: hiker.email,
       phone: hiker.phone,
     });
+    expect(res.body.temporaryPassword).toMatch(/^[A-Za-z0-9_-]{12}$/);
     const saved = db.prepare(`
-      SELECT r.user_id, r.created_by, u.role, u.name, u.email
+      SELECT r.user_id, r.created_by, u.role, u.name, u.email, u.password_to_change
       FROM reservations r
       JOIN users u ON u.user_id = r.user_id
       WHERE r.reservation_id = ?
@@ -353,6 +353,7 @@ describe('POST /api/reservations', () => {
       role: 'hiker',
       name: hiker.name,
       email: hiker.email,
+      password_to_change: 1,
     });
   });
 
@@ -405,8 +406,7 @@ describe('POST /api/reservations', () => {
     const hiker = {
       name: 'Unavailable Hiker',
       email: 'unavailable-hiker@mountainhut.test',
-      phone: '0111111111',
-      password: 'new-password',
+      phone: '0111111111'
     };
 
     const res = await book(cookie, {
@@ -420,4 +420,137 @@ describe('POST /api/reservations', () => {
     expect(db.prepare('SELECT COUNT(*) AS n FROM users WHERE email = ?').get(hiker.email).n).toBe(0);
     expect(db.prepare('SELECT COUNT(*) AS n FROM reservations WHERE slot_id = 4').get().n).toBe(0);
   });
+
+  it('lets the new hiker log in with the temporary password, which must be changed', async () => {
+    const cookie = await loginAs(EMPLOYEE);
+    const email = 'temporary-password@mountainhut.test';
+    const res = await book(cookie, {
+      slotId: 4,
+      partySize: 2,
+      hiker: { name: 'Temporary Password', email, phone: '0123456789' },
+    });
+    expect(res.status).toBe(201);
+
+    const login = await fetch(`${BASE_URL}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: res.body.temporaryPassword }),
+    });
+
+    expect(login.status).toBe(201);
+    expect(await login.json()).toMatchObject({ email, role: 'hiker', passwordToChange: true });
+  });
+
+  it('does not save in clear the password sent by the employee', async () => {
+    const cookie = await loginAs(EMPLOYEE);
+    const email = 'ignored-password@mountainhut.test';
+
+    const res = await book(cookie, {
+      slotId: 4,
+      partySize: 2,
+      hiker: { name: 'Ignored Password', email, phone: '0123456789', password: 'chosen-password' },
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.temporaryPassword).not.toBe('chosen-password');
+    const login = await fetch(`${BASE_URL}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'chosen-password' }),
+    });
+    expect(login.status).toBe(401);
+  });
+
+  it('does not return a temporary password for a registered or a temporary hiker', async () => {
+    const cookie = await loginAs(EMPLOYEE);
+
+    const registered = await book(cookie, { slotId: 4, partySize: 2, hiker: { userId: 5 } });
+    const guest = await book(cookie, { slotId: 4, partySize: 2, hiker: { name: 'Walk-in Guest' } });
+
+    expect(registered.status).toBe(201);
+    expect(guest.status).toBe(201);
+    expect(registered.body).not.toHaveProperty('temporaryPassword');
+    expect(guest.body).not.toHaveProperty('temporaryPassword');
+  });
+
+  it.each([
+    ['does not exist', 99999],
+    ['is not a hiker (the employee)', 2],
+  ])('rejects a booking for a userId that %s with HIKER_NOT_FOUND', async (_, userId) => {
+    const cookie = await loginAs(EMPLOYEE);
+
+    const res = await book(cookie, { slotId: 4, partySize: 2, hiker: { userId } });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('HIKER_NOT_FOUND');
+    expect(db.prepare('SELECT COUNT(*) AS n FROM reservations WHERE slot_id = 4').get().n).toBe(0);
+  });
+
+  it('rejects a booking for a hiker who already booked the slot', async () => {
+    const cookie = await loginAs(EMPLOYEE);
+
+    // Anna (userId 3) already has a reservation in slot 1
+    const res = await book(cookie, { slotId: 1, partySize: 1, hiker: { userId: 3 } });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('ALREADY_BOOKED');
+    expect(db.prepare('SELECT COUNT(*) AS n FROM reservations WHERE reservation_id > ?').get(seed.reservationId).n).toBe(0);
+  });
+
+  it('rejects a new hiker whose email is already registered, without creating anything', async () => {
+    const cookie = await loginAs(EMPLOYEE);
+    const usersBefore = db.prepare('SELECT COUNT(*) AS n FROM users').get().n;
+
+    const res = await book(cookie, {
+      slotId: 4,
+      partySize: 2,
+      hiker: { name: 'Anna Again', email: ANNA, phone: '0123456789' },
+    });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('EMAIL_ALREADY_USED');
+    expect(db.prepare('SELECT COUNT(*) AS n FROM users').get().n).toBe(usersBefore);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM reservations WHERE slot_id = 4').get().n).toBe(0);
+  });
+
+  it('lets an employee book more temporary hikers in the same slot', async () => {
+    const cookie = await loginAs(EMPLOYEE);
+
+    const first = await book(cookie, { slotId: 4, partySize: 2, hiker: { name: 'Same Name' } });
+    const second = await book(cookie, { slotId: 4, partySize: 2, hiker: { name: 'Same Name' } });
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM reservations WHERE guest_name = 'Same Name'").get().n).toBe(2);
+  });
+
+  it('rejects an employee booking for a slot that has already started', async () => {
+    const start = new Date(Date.now() - 10 * 60 * 1000);
+    const end = new Date(Date.now() + 50 * 60 * 1000);
+    const { lastInsertRowid: slotId } = db.prepare('INSERT INTO slots (start_at, end_at) VALUES (?, ?)')
+      .run(start.toISOString(), end.toISOString());
+    db.prepare('INSERT INTO slot_tables (slot_id, table_id) VALUES (?, 1)').run(slotId);
+    const cookie = await loginAs(EMPLOYEE);
+
+    const res = await book(cookie, { slotId: Number(slotId), partySize: 2, hiker: { name: 'Too Late' } });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('BOOKING_TOO_LATE');
+  });
+
+  it('lets only employees search hikers', async () => {
+    const search = (cookie) => fetch(`${BASE_URL}/api/hikers?search=Anna`, { headers: cookie ? { Cookie: cookie } : {} });
+
+    const anonymous = await search();
+    const hiker = await search(await loginAs(ANNA));
+    const employee = await search(await loginAs(EMPLOYEE));
+
+    expect(anonymous.status).toBe(401);
+    expect(hiker.status).toBe(403);
+    expect(employee.status).toBe(200);
+    expect(await employee.json()).toEqual([
+      { userId: 3, name: 'Anna Winden', email: ANNA, phone: '+393401234567' },
+    ]);
+  });
+
 });

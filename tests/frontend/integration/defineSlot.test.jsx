@@ -231,12 +231,12 @@ describe('Access to the employee area', () => {
     expect(callsTo('/api/slots/capacity')).toHaveLength(0);
   });
 
-  it('sends an employee who opens the reservation page back to the homepage', async () => {
+  it('sends an employee who opens the reservation page to the employee reservation page', async () => {
     mockServer({ 'GET /api/sessions/current': { body: CARL } });
 
     renderApp('/reservations');
 
-    expect(await screen.findByRole('heading', { name: 'Welcome to Mountain Hut' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'New reservation for a hiker' })).toBeInTheDocument();
     expect(callsTo('/api/slots')).toHaveLength(0);
   });
 
