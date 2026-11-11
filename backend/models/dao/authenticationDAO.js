@@ -98,7 +98,8 @@ export const changePassword = (user_id, newPassword, passwordToChange = 0) => {
 
             const sql = `
                 UPDATE users
-                SET salt = ?, password_hash = ?, password_to_change = ?
+                SET salt = ?, password_hash = ?, password_to_change = ?,
+                reset_token_hash = NULL, reset_token_expires_at = NULL
                 WHERE user_id = ?
             `;
 
@@ -134,3 +135,35 @@ export const getHikerByEmail = (email) => {
         })
     })
 }
+
+// Saves the hash of a password reset token, replacing any previous one
+export const saveResetToken = (user_id, tokenHash, expiresAt) => {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            UPDATE users
+            SET reset_token_hash = ?, reset_token_expires_at = ?
+            WHERE user_id = ?
+        `;
+
+        db.run(sql, [tokenHash, expiresAt, user_id], function (err) {
+            if (err) return reject(err);
+            resolve(this.changes === 1);
+        });
+    });
+};
+
+// The user with this reset token, if it has not expired (null otherwise)
+export const getUserByResetToken = (tokenHash) => {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            SELECT user_id
+            FROM users
+            WHERE reset_token_hash = ? AND reset_token_expires_at > ?
+        `;
+
+        db.get(sql, [tokenHash, new Date().toISOString()], (err, row) => {
+            if (err) return reject(err);
+            resolve(row ? { user_id: row.user_id } : null);
+        });
+    });
+};

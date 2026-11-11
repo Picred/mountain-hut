@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 
 /**
  * Password recovery: the hiker enters the email and, if it belongs to an
- * account, receives a new temporary password. The answer is always the same,
+ * account, receives a link to choose a new password. The answer is always the same,
  * so it does not tell whether the email is registered.
  */
 export default function ForgotPasswordForm({ onResetPassword }) {
@@ -49,7 +49,7 @@ export default function ForgotPasswordForm({ onResetPassword }) {
             Forgot your password?
           </h2>
           <p className="mt-3 text-sm text-slate-400">
-            Enter your email and we will send you a new temporary password.
+            Enter your email and we will send you a link to choose a new password.
           </p>
         </div>
 
@@ -59,11 +59,11 @@ export default function ForgotPasswordForm({ onResetPassword }) {
             className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-4 text-sm leading-relaxed text-emerald-200"
           >
             <p>
-              If an account exists with this email, a new temporary password
-              has been sent to it.
+              If an account exists with this email, a link to choose a new
+              password has been sent to it.
             </p>
             <p className="mt-2 text-emerald-200/80">
-              Log in with it: you will be asked to choose a new password.
+              The link is valid for 24 hours and can be used only once.
             </p>
 
             <Link
@@ -104,7 +104,7 @@ export default function ForgotPasswordForm({ onResetPassword }) {
             )}
 
             <button type="submit" disabled={loading} className="mt-2 flex w-full cursor-pointer items-center justify-center rounded-xl bg-sky-300 px-5 py-3 font-semibold text-slate-950 transition-colors hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-60">
-              {loading ? (<span className="loading loading-spinner loading-sm"></span>) : ('Send new password')}
+              {loading ? (<span className="loading loading-spinner loading-sm"></span>) : ('Send link')}
             </button>
           </form>
         )}

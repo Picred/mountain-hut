@@ -122,6 +122,14 @@ export const App = () => {
     }
   }
 
+  // Handler for the new password chosen from the recovery link (/reset-password?token=...)
+  const handleResetPassword = async (newPassword) => {
+    const token = new URLSearchParams(location.search).get('token') ?? '';
+    await authAPI.confirmPasswordReset(token, newPassword);
+    setMessage({ msg: "Password changed: log in with the new password.", type: "success" });
+    navigate("/login", { replace: true });
+  };
+
   // 5. Handler for Logout
   const handleLogout = async () => {
     try {
@@ -310,6 +318,19 @@ export const App = () => {
                 <Navigate to="/" replace />
               ) : (
                 <ForgotPasswordForm onResetPassword={authAPI.resetPassword} />
+              )
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              loggedIn ? (
+                <Navigate to="/" replace />
+              ) : (
+                <ChangePasswordForm
+                  onChangePassword={handleResetPassword}
+                  subtitle="Choose a new password for your account. The link is valid for 24 hours and can be used only once."
+                />
               )
             }
           />
