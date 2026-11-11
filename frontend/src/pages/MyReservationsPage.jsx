@@ -30,9 +30,9 @@ const formatDateTime = (timestamp) => {
 
 const isEditable = (reservation) => {
     if (!["confirmed", "waiting"].includes(reservation.status)) return false;
-    const createdAt = new Date(reservation.createdAt).getTime();
-    const age = Date.now() - createdAt;
-    return Number.isFinite(createdAt) && age >= 0 && age <= 48 * 60 * 60 * 1000;
+    // Changes are admitted until 48 hours before the booked slot starts.
+    const startAt = new Date(reservation.startAt).getTime();
+    return Number.isFinite(startAt) && startAt - Date.now() >= 48 * 60 * 60 * 1000;
 };
 
 const sameRequirement = (left, right) =>
@@ -277,7 +277,7 @@ export const MyReservationsPage = () => {
                     <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">My reservations</h1>
                     <p className="mt-3 max-w-2xl text-slate-300">
                         Review your bookings and update the date, time, party size, or party requirements.
-                        Changes are allowed within 48 hours after booking.
+                        Changes are allowed until 48 hours before the booked date.
                     </p>
                 </header>
 
@@ -346,7 +346,7 @@ export const MyReservationsPage = () => {
                                             <p className="text-sm text-slate-400">
                                                 {reservation.status === "cancelled"
                                                     ? "Cancelled reservations cannot be changed."
-                                                    : "The 48-hour change window has expired."}
+                                                    : "Changes are no longer allowed less than 48 hours before the booked date."}
                                             </p>
                                         )}
                                     </div>

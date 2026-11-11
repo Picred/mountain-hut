@@ -353,8 +353,8 @@ describe('Change a booking e2e', () => {
       expect(res.body.error).toBe('RESERVATION_NOT_EDITABLE');
     });
 
-    it('returns 409 EDIT_WINDOW_EXPIRED when booking was made more than 48 hours ago', async () => {
-      // Demo reservation 1 belongs to Anna (userId: 3) and was created 72 hours ago
+    it('returns 409 EDIT_WINDOW_EXPIRED when the booked slot starts in less than 48 hours', async () => {
+      // Demo reservation 1 belongs to Anna (userId: 3) and is for slot 1, which starts tomorrow
       const anna = await loginAnna();
       const res = await anna.patch('/api/reservations/1').send({ partySize: 3 });
 

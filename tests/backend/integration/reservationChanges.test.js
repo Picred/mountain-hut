@@ -12,8 +12,9 @@ const BACKEND_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const PORT = 3105;
 const BASE_URL = `http://localhost:${PORT}`;
 
-// Demo data: slot 4 (in two days) is empty with T1 (4) and T3 (6), slot 6 (in eight days) is empty too.
-// Anna booked slot 1 (reservation 1, 72 hours ago) and slot 2 (reservation 5), Bruno's reservation 7 is cancelled.
+// Demo data: slot 6 (in eight days) is empty with T1 (4), T2 (4), T3 (6) and T5 (2).
+// Anna booked slot 1 (reservation 1, tomorrow) and slot 2 (reservation 5), Bruno's reservation 7 is cancelled.
+// Changes are admitted until 48 hours before the booked slot starts.
 const ANNA = 'anna@mountainhut.test';
 const BRUNO = 'bruno@mountainhut.test';
 const EDWARD = 'edward@mountainhut.test';
@@ -58,12 +59,25 @@ async function request(method, url, cookie, body) {
 const book = (cookie, body) => request('POST', '/api/reservations', cookie, body);
 const change = (cookie, reservationId, body) => request('PATCH', `/api/reservations/${reservationId}`, cookie, body);
 
-// Books slot 4 as Anna and returns her cookie and the new reservation
+// Creates a slot starting in the given hours with the given tables and returns its id
+function createSlot(hours, tableIds) {
+  const start = new Date(Date.now() + hours * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const { lastInsertRowid: slotId } = db.prepare('INSERT INTO slots (start_at, end_at) VALUES (?, ?)')
+    .run(start.toISOString(), end.toISOString());
+  for (const tableId of tableIds) {
+    db.prepare('INSERT INTO slot_tables (slot_id, table_id) VALUES (?, ?)').run(slotId, tableId);
+  }
+  return Number(slotId);
+}
+
+// As Anna, books a new slot starting in 72 hours with T1 (4) and T3 (6), returns her cookie, the slot and the reservation
 async function annaBooks(body) {
+  const slotId = createSlot(72, [1, 3]);
   const cookie = await loginAs(ANNA);
-  const res = await book(cookie, { slotId: 4, ...body });
+  const res = await book(cookie, { slotId, ...body });
   expect(res.status).toBe(201);
-  return { cookie, reservation: res.body };
+  return { cookie, slotId, reservation: res.body };
 }
 
 function savedReservation(reservationId) {
@@ -174,26 +188,28 @@ describe('PATCH /api/reservations/:reservationId', () => {
     expect(res.body.error).toBe('RESERVATION_NOT_EDITABLE');
   });
 
-  it('refuses changes more than 48 hours after the booking and saves nothing', async () => {
+  it('refuses changes less than 48 hours before the booked slot and saves nothing', async () => {
     const cookie = await loginAs(ANNA);
-    const before = savedReservation(1);
+    const booked = await book(cookie, { slotId: createSlot(47, [1]), partySize: 2 });
+    expect(booked.status).toBe(201);
+    const before = savedReservation(booked.body.reservationId);
 
-    const res = await change(cookie, 1, { partySize: 4 });
+    const res = await change(cookie, booked.body.reservationId, { partySize: 3 });
 
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('EDIT_WINDOW_EXPIRED');
-    expect(savedReservation(1)).toEqual(before);
+    expect(savedReservation(booked.body.reservationId)).toEqual(before);
   });
 
   it('reallocates the tables when the party size changes', async () => {
-    const { cookie, reservation } = await annaBooks({ partySize: 3 });
+    const { cookie, slotId, reservation } = await annaBooks({ partySize: 3 });
 
     const res = await change(cookie, reservation.reservationId, { partySize: 8 });
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       reservationId: reservation.reservationId,
-      slotId: 4,
+      slotId,
       partySize: 8,
       status: 'confirmed',
       requirements: [],
@@ -203,18 +219,18 @@ describe('PATCH /api/reservations/:reservationId', () => {
       ],
     });
     expect(savedReservation(reservation.reservationId)).toEqual({
-      slot_id: 4,
+      slot_id: slotId,
       party_size: 8,
       tables: [
-        { slot_id: 4, table_id: 1, allocated_seats: 4 },
-        { slot_id: 4, table_id: 3, allocated_seats: 4 },
+        { slot_id: slotId, table_id: 1, allocated_seats: 4 },
+        { slot_id: slotId, table_id: 3, allocated_seats: 4 },
       ],
       requirements: [],
     });
   });
 
   it('moves the reservation to another slot and frees the seats of the old one', async () => {
-    const { cookie, reservation } = await annaBooks({ partySize: 2 });
+    const { cookie, slotId, reservation } = await annaBooks({ partySize: 2 });
 
     const res = await change(cookie, reservation.reservationId, { slotId: 6 });
 
@@ -227,7 +243,7 @@ describe('PATCH /api/reservations/:reservationId', () => {
     expect(savedReservation(reservation.reservationId).tables).toEqual([
       { slot_id: 6, table_id: 5, allocated_seats: 2 },
     ]);
-    const oldSlot = await request('GET', '/api/slots/4/availability?partySize=10', null);
+    const oldSlot = await request('GET', `/api/slots/${slotId}/availability?partySize=10`, null);
     expect(oldSlot.body.available).toBe(true);
   });
 
@@ -252,15 +268,11 @@ describe('PATCH /api/reservations/:reservationId', () => {
   });
 
   it('refuses to move the reservation to a missing slot or one starting in less than 2 hours', async () => {
-    const start = new Date(Date.now() + 60 * 60 * 1000);
-    const end = new Date(start.getTime() + 60 * 60 * 1000);
-    const { lastInsertRowid: slotId } = db.prepare('INSERT INTO slots (start_at, end_at) VALUES (?, ?)')
-      .run(start.toISOString(), end.toISOString());
-    db.prepare('INSERT INTO slot_tables (slot_id, table_id) VALUES (?, 1)').run(slotId);
+    const soonSlotId = createSlot(1, [1]);
     const { cookie, reservation } = await annaBooks({ partySize: 2 });
 
     const missing = await change(cookie, reservation.reservationId, { slotId: 999 });
-    const tooLate = await change(cookie, reservation.reservationId, { slotId: Number(slotId) });
+    const tooLate = await change(cookie, reservation.reservationId, { slotId: soonSlotId });
 
     expect(missing.status).toBe(404);
     expect(missing.body.error).toBe('SLOT_NOT_FOUND');
@@ -269,7 +281,7 @@ describe('PATCH /api/reservations/:reservationId', () => {
   });
 
   it('adds, updates and removes party requirements without moving the party', async () => {
-    const { cookie, reservation } = await annaBooks({
+    const { cookie, slotId, reservation } = await annaBooks({
       partySize: 3,
       requirements: [
         { peopleCount: 1, description: 'peanuts', isAllergy: true },
@@ -292,9 +304,9 @@ describe('PATCH /api/reservations/:reservationId', () => {
       { id: expect.any(Number), peopleCount: 2, description: 'vegan', isAllergy: false },
     ]);
     expect(savedReservation(reservation.reservationId)).toEqual({
-      slot_id: 4,
+      slot_id: slotId,
       party_size: 3,
-      tables: [{ slot_id: 4, table_id: 1, allocated_seats: 3 }],
+      tables: [{ slot_id: slotId, table_id: 1, allocated_seats: 3 }],
       requirements: [
         { people_count: 1, description: 'nuts', is_allergy: 1 },
         { people_count: 2, description: 'vegan', is_allergy: 0 },
@@ -337,7 +349,7 @@ describe('GET /api/reservations', () => {
   });
 
   it("lists only the hiker's reservations, latest slot first, with the details needed to change them", async () => {
-    const { cookie, reservation } = await annaBooks({
+    const { cookie, slotId, reservation } = await annaBooks({
       partySize: 3,
       requirements: [{ peopleCount: 1, description: 'peanuts', isAllergy: true }],
     });
@@ -353,7 +365,7 @@ describe('GET /api/reservations', () => {
     expect(res.body.map((r) => r.reservationId)).toEqual([reservation.reservationId, 5, 1]);
     expect(res.body[0]).toEqual({
       reservationId: reservation.reservationId,
-      slotId: 4,
+      slotId,
       startAt: saved.start_at,
       endAt: saved.end_at,
       partySize: 3,
