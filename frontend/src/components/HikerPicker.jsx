@@ -18,7 +18,8 @@ const labelClass = "mb-2 block text-sm font-medium text-slate-300";
  * Calls onChange with the hiker in the format of the backend, or with null
  * while the data of the active tab is missing or invalid:
  * - existing hiker: { userId }
- * - new hiker with a web account: { name, email, phone, password }
+ * - new hiker with a web account: { name, email, phone }. The backend generates a
+ *   temporary password, which the hiker must change at the first login.
  * - quick entry (temporary hiker): { name, phone? }
  */
 export const HikerPicker = ({ onChange }) => {
@@ -36,7 +37,6 @@ export const HikerPicker = ({ onChange }) => {
     name: "",
     email: "",
     phone: "",
-    password: "",
   });
 
   // Temporary hiker.
@@ -80,16 +80,10 @@ export const HikerPicker = ({ onChange }) => {
   }, [trimmedSearch, searchIsLongEnough]);
 
   // Validation of the new hiker form.
-  const newHikerErrors = {
-    email:
-      newHiker.email.trim() && !EMAIL_PATTERN.test(newHiker.email.trim())
-        ? "Enter a valid email address."
-        : null,
-    password:
-      newHiker.password && newHiker.password.length < 6
-        ? "The password must have at least 6 characters."
-        : null,
-  };
+  const emailError =
+    newHiker.email.trim() && !EMAIL_PATTERN.test(newHiker.email.trim())
+      ? "Enter a valid email address."
+      : null;
 
   // Send the hiker of the active tab to the page.
   useEffect(() => {
@@ -102,14 +96,8 @@ export const HikerPicker = ({ onChange }) => {
       const email = newHiker.email.trim();
       const phone = newHiker.phone.trim();
 
-      if (
-        name &&
-        email &&
-        phone &&
-        EMAIL_PATTERN.test(email) &&
-        newHiker.password.length >= 6
-      ) {
-        hiker = { name, email, phone, password: newHiker.password };
+      if (name && email && phone && EMAIL_PATTERN.test(email)) {
+        hiker = { name, email, phone };
       }
     } else if (quickHiker.name.trim()) {
       const phone = quickHiker.phone.trim();
@@ -248,7 +236,8 @@ export const HikerPicker = ({ onChange }) => {
         {tab === "new" && (
           <div className="space-y-4">
             <p className="text-sm text-slate-400">
-              A regular hiker profile is created, so the hiker can log in later.
+              A regular hiker profile is created with a temporary password, shown
+              after the reservation. The hiker must change it at the first login.
             </p>
 
             <div>
@@ -281,10 +270,8 @@ export const HikerPicker = ({ onChange }) => {
                 }
                 className={inputClass}
               />
-              {newHikerErrors.email && (
-                <p className="mt-2 text-xs text-red-300">
-                  {newHikerErrors.email}
-                </p>
+              {emailError && (
+                <p className="mt-2 text-xs text-red-300">{emailError}</p>
               )}
             </div>
 
@@ -302,31 +289,6 @@ export const HikerPicker = ({ onChange }) => {
                 }
                 className={inputClass}
               />
-            </div>
-
-            <div>
-              <label htmlFor="new-hiker-password" className={labelClass}>
-                Temporary password
-              </label>
-              <input
-                id="new-hiker-password"
-                type="text"
-                autoComplete="off"
-                value={newHiker.password}
-                onChange={(e) =>
-                  setNewHiker({ ...newHiker, password: e.target.value })
-                }
-                className={inputClass}
-              />
-              {newHikerErrors.password ? (
-                <p className="mt-2 text-xs text-red-300">
-                  {newHikerErrors.password}
-                </p>
-              ) : (
-                <p className="mt-2 text-xs text-slate-500">
-                  At least 6 characters. Tell it to the hiker.
-                </p>
-              )}
             </div>
           </div>
         )}

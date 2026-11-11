@@ -71,5 +71,44 @@ async function logout() {
   return true;
 }
 
-const authAPI = { register, login, logout, getCurrentUser };
+// 5. CHANGE PASSWORD (mandatory after temporary password)
+async function changePassword(newPassword) {
+  const response = await fetch(`${SERVER_URL}/api/users/password`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ newPassword }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || 'Password change failed');
+  }
+
+  // The updated user, with passwordToChange set to false
+  return await response.json();
+}
+
+// 6. RECOVER PASSWORD
+async function resetPassword(email) {
+  const response = await fetch(`${SERVER_URL}/api/users/password-reset`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || 'Password recovery failed');
+  }
+
+  return true;
+}
+
+const authAPI = { register, login, logout, getCurrentUser, changePassword, resetPassword };
 export default authAPI;

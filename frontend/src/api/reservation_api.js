@@ -108,7 +108,9 @@ export const createReservation = (slotId, partySize, requirements = []) =>
         requirements,
     }, false);
 
-// Employee only. hiker is { userId } | { name, email, phone, password } | { name, phone? }.
+// Employee only. hiker is { userId } | { name, email, phone } | { name, phone? }.
+// With { name, email, phone } the backend registers the hiker with a random password and
+// returns it in the response as temporaryPassword: the hiker must change it at the first login.
 export const createReservationForHiker = (slotId, partySize, requirements = [], hiker) =>
     postReservation({
         slotId: Number(slotId),

@@ -11,6 +11,51 @@ const dateKey = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+// Temporary password of a hiker registered by an employee together with the reservation.
+// The backend returns it only in this response.
+const TemporaryPassword = ({ password, email }) => {
+  const [copied, setCopied] = useState(false);
+
+  const copyPassword = async () => {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // The password can still be selected and copied by hand.
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div
+      role="status"
+      className="mt-6 rounded-xl border border-amber-300/40 bg-amber-300/10 p-5"
+    >
+      <p className="text-sm font-semibold text-amber-200">Temporary password</p>
+
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <code className="select-all break-all font-mono text-xl tracking-wider text-white">
+          {password}
+        </code>
+
+        <button
+          type="button"
+          onClick={copyPassword}
+          className="shrink-0 cursor-pointer rounded-lg border border-amber-300/40 px-3 py-1.5 text-sm font-medium text-amber-200 transition-colors hover:bg-amber-300/10"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+
+      <p className="mt-3 text-xs leading-relaxed text-amber-100/80">
+        This password is shown only now. Give it to the hiker
+        {email ? ` (${email})` : ""}: it must be changed at the first login.
+      </p>
+    </div>
+  );
+};
+
 /**
  * Availability check and reservation flow, shared by the hiker page and the
  * employee page.
@@ -444,6 +489,13 @@ export const BookingFlow = ({
             <p className="mt-2 text-sm text-slate-400">
               {confirmation.message}
             </p>
+
+            {reservationDetails.temporaryPassword && (
+              <TemporaryPassword
+                password={reservationDetails.temporaryPassword}
+                email={reservationDetails.hiker?.email}
+              />
+            )}
 
             <div className="mt-6 space-y-3 rounded-xl border border-white/10 bg-[#090f19] p-5 text-sm">
               <div className="flex justify-between gap-4">
@@ -1024,4 +1076,4 @@ export const BookingFlow = ({
       </div>
     </div>
   );
-};
+};

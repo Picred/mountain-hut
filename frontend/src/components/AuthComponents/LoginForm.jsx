@@ -62,9 +62,17 @@ export default function LoginForm({ onLogin }) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">
-              Password
-            </label>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label className="block text-sm font-medium text-slate-200">
+                Password
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-sm text-sky-300 transition-colors hover:text-sky-200"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <input
               type="password"
               placeholder="••••••••"
