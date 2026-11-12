@@ -148,6 +148,35 @@ async function createTable(code, seats) {
     return await response.json();
 }
 
-const capacityAPI = { getSlots, createSlot, getTables, addTablesToSlot, copyTablesToSlot, createTable };
+// Copia la programmazione di una settimana in un'altra
+async function copyWeeklySchedule(fromDate, toDate) {
+    const response = await fetch(`${SERVER_URL}/api/slots/copy-week`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+            fromDate,
+            toDate,
+            copyTables: true,
+            copyMenu: true,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        throw new Error(
+            errorData.message ||
+            errorData.error ||
+            "Unable to copy weekly schedule"
+        );
+    }
+
+    return await response.json();
+}
+
+const capacityAPI = { getSlots, createSlot, getTables, addTablesToSlot, copyTablesToSlot, createTable, copyWeeklySchedule };
 
 export default capacityAPI;
