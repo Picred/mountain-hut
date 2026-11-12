@@ -128,6 +128,7 @@ Retrieves the booking slots for the specified date including just the slots with
   - `slotId`
   - `startTime`
   - `endTime`
+  - `availableSeats` (total seats from assigned tables minus seats allocated to confirmed reservations)
   - `bookingAllowed`
   - `restrictionReason`
 - **Errors:**
