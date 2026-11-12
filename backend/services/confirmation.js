@@ -123,46 +123,6 @@ ${rows}
     };
 };
 
-export const buildCancellationEmail = (booking) => {
-    const details = [
-        ['Booking reference', formatBookingReference(booking.reservationId)],
-        ['Date', formatDate(booking.startAt)],
-        ['Time slot', `${formatTime(booking.startAt)} - ${formatTime(booking.endAt)}`],
-        ['Party size', `${booking.partySize} ${plural(booking.partySize, 'person', 'people')}`]
-    ];
-
-    const text = [
-        `Hello ${booking.hikerName},`,
-        '',
-        'your reservation at the Mountain Hut has been successfully cancelled.',
-        '',
-        ...details.map(([label, value]) => `${label}: ${value}`),
-        '',
-        'We hope to see you again soon!'
-    ].join('\n');
-
-    const rows = details
-        .map(([label, value]) =>
-            `<tr><td style="padding:4px 16px 4px 0;color:#555">${escapeHtml(label)}</td>` +
-            `<td style="padding:4px 0"><strong>${escapeHtml(value)}</strong></td></tr>`)
-        .join('\n');
-
-    const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222">
-<p>Hello ${escapeHtml(booking.hikerName)},</p>
-<p>your reservation at the Mountain Hut has been successfully cancelled.</p>
-<table style="border-collapse:collapse">
-${rows}
-</table>
-<p>We hope to see you again soon!</p>
-</div>`;
-
-    return {
-        subject: `Mountain Hut - Booking cancellation ${formatBookingReference(booking.reservationId)}`,
-        text,
-        html
-    };
-};
-
 /**
  * Sends the confirmation email of a reservation to the hiker who made it.
  *
@@ -198,33 +158,5 @@ export const sendChangesConfirmation = async (reservationId) => {
         await sendEmail({ to: booking.hikerEmail, ...buildChangesEmail(booking) });
     } catch (err) {
         console.error(`[mail] confirmation email of reservation ${reservationId} not sent:`, err.message);
-    }
-};
-
-/**
- * Sends a cancellation confirmation email to the hiker.
- *
- * Email failures are logged and must not affect the cancellation,
- * which has already been committed to the database.
- */
-export const sendCancellationConfirmation = async (reservationId) => {
-    try {
-        const booking = await getBookingConfirmationData(reservationId);
-
-        if (!booking) {
-            // Nobody to notify.
-            return;
-        }
-
-        await sendEmail({
-            to: booking.hikerEmail,
-            ...buildCancellationEmail(booking)
-        });
-
-    } catch (err) {
-        console.error(
-            `[mail] cancellation email of reservation ${reservationId} not sent:`,
-            err.message
-        );
     }
 };
