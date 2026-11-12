@@ -17,7 +17,7 @@ export const listAvailableSlots = async (date) => {
         throw new Error('Server error while fetching available slots.');
     }
 
-    // [{ slotId, startTime, endTime, bookingAllowed, restrictionReason }]
+    // [{ slotId, startTime, endTime, availableSeats, bookingAllowed, restrictionReason }]
     return await response.json();
 };
 
