@@ -465,7 +465,8 @@ Retrieves all the reservations of the authenticated user, to choose the one to c
   - `401 Unauthorized` — `UNAUTHORIZED`
 
 ##### PATCH `/api/reservations/:reservationId`
-Modifies an existing reservation owned by the authenticated user. Changing the slot or party size recalculates the table allocation atomically. If the new party does not fit, nothing is changed and the reservation keeps its slot, its party size and its tables. 
+
+Modifies an existing reservation owned by the authenticated user. Changing the slot or party size recalculates the table allocation atomically. If the new party does not fit, nothing is changed and the reservation keeps its slot, its party size and its tables. Changes are admitted until 48 hours before the start of the booked slot, otherwise `EDIT_WINDOW_EXPIRED`.
 
 - **Authentication:** required.
 - **Path parameter:** `reservationId` (positive integer).
