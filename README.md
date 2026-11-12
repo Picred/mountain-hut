@@ -10,11 +10,9 @@
 
 ### Database tables
 - `users` contains user_id, name (text), email (text), phone (text), password_hash (text), salt (text), role (text)
-- `slots` contains slot_id, start_at (text), end_at (text)
+- `slots` contains slot_id, start_at (text), end_at (text), menu (text, nullable)
 - `tables` contains table_id, table_code (text), seats (number)
 - `slot_tables` contains slot_table_id, slot_id, table_id
-- `dishes` contains dish_id, name (text), description (text), price, course (text)
-- `slots_dishes` contains slot_id, dish_id
 - `reservations` contains reservation_id, slot_id, user_id, guest_name (text), guest_phone (text), created_by (user_id), party_size (number), status (text), created_at (text)
 - `reservation_table` contains reservation_id, slot_table_id, allocated_seats (number)
 - `reservation_requirements` contains id, reservation_id, people_count (number), description (text), is_allergy (boolean)
@@ -222,6 +220,7 @@ Retrieves all the slots ordered by start time.
   - `slotId`
   - `startAt`
   - `endAt`
+  - `menu` (text, `null` if not defined, see MH-10)
   - `hasTables`
   - `totalSeats`
   - `tables` (an array of `tableId`, `code`, `seats`)
@@ -232,6 +231,7 @@ Retrieves all the slots ordered by start time.
     "slotId": 1,
     "startAt": "2026-11-02T11:00:00.000Z",
     "endAt": "2026-11-02T12:00:00.000Z",
+    "menu": "**Lunch menu**\n- Polenta\n- Apple strudel",
     "hasTables": true,
     "totalSeats": 8,
     "tables": [
@@ -243,6 +243,7 @@ Retrieves all the slots ordered by start time.
     "slotId": 2,
     "startAt": "2026-11-02T12:00:00.000Z",
     "endAt": "2026-11-02T13:00:00.000Z",
+    "menu": null,
     "hasTables": false,
     "totalSeats": 0,
     "tables": []
@@ -277,6 +278,7 @@ Creates a slot without tables.
   "slotId": 2,
   "startAt": "2026-11-02T12:00:00.000Z",
   "endAt": "2026-11-02T13:00:00.000Z",
+  "menu": null,
   "hasTables": false,
   "totalSeats": 0,
   "tables": []
@@ -536,3 +538,77 @@ Modifies an existing reservation owned by the authenticated user. Changing the s
   - `409 Conflict` — `BOOKING_TOO_LATE`
   - `409 Conflict` — `NO_AVAILABILITY`
   - `409 Conflict` — `ALREADY_BOOKED`
+
+
+
+#### MH-10 - Define Menus
+
+The menu of a slot is a free text with basic Markdown formatting, stored as it is and rendered by the frontend:
+- `**bold**` and `*italic*`
+- item lists with `- item`, sub-items indented by two spaces (`  - sub-item`)
+
+The menu is returned in `GET /api/slots/capacity`, it is `null` if not defined. `POST /api/slots/copy-week` copies the menus too when `copyMenu` is `true` (default).
+
+##### GET `/api/slots/menus`
+
+Retrieves the menus already defined (distinct texts), to reuse and change them in another slot.
+
+- **Authentication:** required (role `employee`).
+- **Response:** `200 OK` — an array (at most 50) ordered from the most recently used menu, containing:
+  - `menu`
+  - `lastUsedAt` (start of the latest slot with this menu, ISO 8601, UTC)
+
+```json
+[
+  {
+    "menu": "**Dinner menu**\n- Main course\n  - *Braised beef* with polenta",
+    "lastUsedAt": "2026-11-04T18:00:00.000Z"
+  }
+]
+```
+
+- **Errors:**
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+
+##### PUT `/api/slots/:slotId/menu`
+
+Sets (or replaces) the menu of a slot that has not started yet. Changing a reused menu only affects this slot.
+
+- **Authentication:** required (role `employee`).
+- **Request body:** `menu` is a non-empty text of at most 2000 characters (leading and trailing spaces are removed).
+
+```json
+{
+  "menu": "**Lunch menu**\n- First course\n  - *Polenta concia*\n- Apple strudel"
+}
+```
+
+- **Response:** `200 OK`
+
+```json
+{
+  "slotId": 1,
+  "menu": "**Lunch menu**\n- First course\n  - *Polenta concia*\n- Apple strudel"
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT`
+  - `400 Bad Request` — `SLOT_IN_THE_PAST` (the slot has already started)
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `404 Not Found` — `SLOT_NOT_FOUND`
+
+##### DELETE `/api/slots/:slotId/menu`
+
+Removes the menu of a slot that has not started yet.
+
+- **Authentication:** required (role `employee`).
+- **Response:** `204 No Content`
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT`
+  - `400 Bad Request` — `SLOT_IN_THE_PAST`
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `404 Not Found` — `SLOT_NOT_FOUND`
