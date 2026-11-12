@@ -149,6 +149,7 @@ describe('Authentication flow', () => {
             slotId: 1,
             startTime: '12:00',
             endTime: '13:00',
+            availableSeats: 4,
             bookingAllowed: true,
           },
         ],
