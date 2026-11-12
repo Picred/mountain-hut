@@ -721,3 +721,33 @@ Sets the new password with the token of the recovery link, invalidates the token
   - `400 Bad Request` — `INVALID_OR_EXPIRED_TOKEN` (unknown, already used or expired token)
 
 
+
+#### MH-08 - Cancel a Booking
+
+##### DELETE `/api/reservations/:reservationId`
+
+Cancels an existing reservation owned by the authenticated hiker.
+
+The reservation is not deleted from the database. Instead, its status is updated to `cancelled`, and all associated table allocations are removed, making those seats available for other reservations.
+
+- **Authentication:** required.
+- **Path parameter:** `reservationId` (positive integer).
+- **Request body:** empty.
+- **Response:** `200 OK` — the cancelled reservation, with status `cancelled` and an empty `tableAllocation` array.
+
+```json
+{
+  "reservationId": 9,
+  "status": "cancelled",
+  "tableAllocation": []
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT`
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `404 Not Found` — `RESERVATION_NOT_FOUND`
+  - `409 Conflict` — `RESERVATION_NOT_CANCELLABLE`
+
+

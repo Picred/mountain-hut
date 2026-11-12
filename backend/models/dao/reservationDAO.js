@@ -836,3 +836,116 @@ export const updateReservation = async (reservationId, userId, changes) => {
         });
     }
 };
+
+/**
+ * Cancels an owned reservation and releases its allocated tables.
+ *
+ * The reservation is not deleted from the database: its status is
+ * changed to 'cancelled', while its table allocations are removed.
+ *
+ * All operations are performed in a single transaction.
+ */
+export const cancelReservation = async (reservationId, userId) => {
+    if (
+        !Number.isInteger(reservationId) ||
+        reservationId <= 0 ||
+        !Number.isInteger(userId) ||
+        userId <= 0
+    ) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    const connection = new sqlite.Database(DB_PATH, sqlite.OPEN_READWRITE);
+    let transactionStarted = false;
+
+    try {
+        await dbRun('PRAGMA foreign_keys = ON', [], connection);
+        await dbRun('BEGIN IMMEDIATE', [], connection);
+        transactionStarted = true;
+
+        // Find the reservation.
+        const reservation = await dbGet(`
+            SELECT
+                r.reservation_id AS reservationId,
+                r.user_id AS userId,
+                r.status
+                -- , s.start_at AS startAt
+            FROM reservations r
+            -- JOIN slots s ON s.slot_id = r.slot_id
+            WHERE r.reservation_id = ?
+        `, [reservationId], connection);
+
+        if (!reservation) {
+            throw new NotFoundError('RESERVATION_NOT_FOUND');
+        }
+
+        // Only the owner can cancel the reservation.
+        if (reservation.userId !== userId) {
+            throw new ForbiddenError('FORBIDDEN');
+        }
+
+        // Only active reservations can be cancelled.
+        if (!['confirmed', 'waiting'].includes(reservation.status)) {
+            throw new ConflictError('RESERVATION_NOT_CANCELLABLE');
+        }
+
+        /*
+        *
+        * MH-08 allows cancellation at any time.
+        * If requirements change, uncomment the startAt field,
+        * the JOIN with slots, and the following validation.
+        *
+        * Cancellation is forbidden from the exact start time
+        * of the reservation onwards.
+        */
+        /*
+        const reservationStart = new Date(reservation.startAt);
+        if (Date.now() >= reservationStart.getTime()) {
+            throw new ConflictError('RESERVATION_ALREADY_STARTED');
+        }
+        */
+
+        // Release all tables allocated to the reservation.
+        await dbRun(`
+            DELETE FROM reservation_table
+            WHERE reservation_id = ?
+        `, [reservationId], connection);
+
+        // Keep the reservation in the database as cancelled.
+        await dbRun(`
+            UPDATE reservations
+            SET status = 'cancelled'
+            WHERE reservation_id = ?
+        `, [reservationId], connection);
+
+        // Save both changes atomically.
+        await dbRun('COMMIT', [], connection);
+        transactionStarted = false;
+
+        return {
+            reservationId,
+            status: 'cancelled'
+        };
+
+    } catch (err) {
+        if (transactionStarted) {
+            try {
+                await dbRun('ROLLBACK', [], connection);
+            } catch (rollbackErr) {
+                console.error('Rollback failed:', rollbackErr);
+            }
+        }
+
+        throw err;
+
+    } finally {
+        await new Promise(resolve => {
+            connection.close(err => {
+                if (err) {
+                    console.error('Failed to close database connection:', err);
+                }
+                resolve();
+            });
+        });
+    }
+};
