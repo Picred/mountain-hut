@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import { makeReservation, updateReservation, cancelReservation } from '../models/dao/reservationDAO.js';
+import { makeReservation, updateReservation } from '../models/dao/reservationDAO.js';
 import { hashPassword } from '../models/dao/authenticationDAO.js';
-import { sendBookingConfirmation, sendChangesConfirmation, sendCancellationConfirmation } from '../services/confirmation.js';
+import { sendBookingConfirmation, sendChangesConfirmation } from '../services/confirmation.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import UnauthorizedError from '../models/errors/UnauthorizedError.js';
 
@@ -164,31 +164,6 @@ router.patch('/:reservationId', async (req, res) => {
 
     // Email failures are handled and logged by the confirmation service.
     sendChangesConfirmation(reservation.reservationId);
-
-    return res.status(200).json(reservation);
-});
-
-/**
- * DELETE /api/reservations/:reservationId
- *
- * Cancels an authenticated hiker's reservation.
- */
-router.delete('/:reservationId', async (req, res) => {
-    const userId = req.user?.user_id;
-    const reservationId = Number(req.params.reservationId);
-
-    if (!userId) {
-        throw new UnauthorizedError('UNAUTHORIZED');
-    }
-
-    if (!Number.isInteger(reservationId) || reservationId <= 0) {
-        throw new BadRequestError('INVALID_INPUT');
-    }
-
-    const reservation = await cancelReservation(reservationId, userId);
-
-    // Email failures are handled and logged by the confirmation service.
-    sendCancellationConfirmation(reservation.reservationId);
 
     return res.status(200).json(reservation);
 });
