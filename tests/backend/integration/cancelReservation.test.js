@@ -92,6 +92,7 @@ beforeAll(async () => {
   execFileSync('node', ['db/init-db.js'], { cwd: BACKEND_DIR, env: { ...process.env, DB_PATH: dbPath } });
 
   db = new DatabaseSync(dbPath);
+  db.exec('PRAGMA busy_timeout = 5000');
   seed = db.prepare(`
     SELECT (SELECT MAX(reservation_id) FROM reservations) AS reservationId,
            (SELECT MAX(slot_id) FROM slots) AS slotId
