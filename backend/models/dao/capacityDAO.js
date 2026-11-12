@@ -250,8 +250,8 @@ const getSlotsById = async slotIds => {
  * - the source week is copied into `weeks` consecutive weeks, starting from the
  *   week of toDate (before or after the source week)
  * - the tables and the menu of each slot can be copied too
- * - a slot that overlaps an existing slot, or that would start in the past, is not
- *   created: it is reported in `skipped`, the other slots are created anyway
+ * - a slot that overlaps an existing slot, or that would start in the past,
+ *   if it has reservations makes everything rollback, if not is substituted
  */
 export const copyWeek = (fromDate, toDate, weeks = 1, { copyTables = true, copyMenu = true } = {}) =>
     runExclusive(() => copyWeekInTransaction(fromDate, toDate, weeks, copyTables, copyMenu));
@@ -330,18 +330,52 @@ const copyWeekInTransaction = async (fromDate, toDate, weeks, copyTables, copyMe
                     continue;
                 }
 
+                // Search overlapping slots
+                const overlappingSlots = await dbAll(`
+                    SELECT slot_id AS slotId, start_at AS startAt, end_at AS endAt
+                    FROM slots
+                    WHERE start_at < ? AND end_at > ?
+                `, [endAt, startAt], connection);
+
+                if (overlappingSlots.length > 0) {
+                    const overlapIds = overlappingSlots.map(s => s.slotId);
+                    const placeholders = overlapIds.map(() => '?').join(',');
+
+                    // 1. Verify if even just one has active reservations
+                    const activeReservation = await dbGet(`
+                        SELECT r.reservation_id, s.slot_id AS slotId, s.start_at AS startAt, s.end_at AS endAt
+                        FROM reservations r
+                        JOIN slots s ON s.slot_id = r.slot_id
+                        WHERE r.slot_id IN (${placeholders})
+                          AND r.status <> 'cancelled'
+                        LIMIT 1
+                    `, overlapIds, connection);
+
+                    // If so ROLLBACK (everything is stopped)
+                    if (activeReservation) {
+                        throw new ConflictError(
+                            `SLOT_HAS_RESERVATIONS (slotId: ${activeReservation.slotId}, ${activeReservation.startAt} - ${activeReservation.endAt})`
+                        );
+                    }
+
+                    // 2. No active reservation: delete also 'cancelled'
+                    await dbRun(`
+                        DELETE FROM reservations
+                        WHERE slot_id IN (${placeholders})
+                    `, overlapIds, connection);
+
+                    // 3. Delete old overlapping (slot_tables and slots_dishes CASCADE)
+                    await dbRun(`
+                        DELETE FROM slots
+                        WHERE slot_id IN (${placeholders})
+                    `, overlapIds, connection);
+                }
+
+                // Insert new instead of old slot
                 const result = await dbRun(`
                     INSERT INTO slots (start_at, end_at)
-                    SELECT ?, ?
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM slots WHERE start_at < ? AND end_at > ?
-                    )
-                `, [startAt, endAt, endAt, startAt], connection);
-
-                if (result.changes === 0) {
-                    skipped.push({ startAt, endAt, reason: 'SLOT_OVERLAP' });
-                    continue;
-                }
+                    VALUES (?, ?)
+                `, [startAt, endAt], connection);
 
                 const slotId = result.lastID;
 
