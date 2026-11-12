@@ -105,24 +105,21 @@ router.post('/api/slots/:id/copy-tables', employeeOnly, async (req, res) => {
 // POST /api/slots/copy-week
 router.post('/api/slots/copy-week', employeeOnly, async (req, res) => {
     const { fromDate, toDate } = req.body ?? {};
-    // when missing: one week
-    const weeks = req.body?.weeks === undefined ? 1 : req.body.weeks;
-    // copyTables and copyMenu (default true) tell whether tables and menu are copied too
+    // copyTables and copyMenu (default true) indicate whether tables and menu are copied too
     const copyTables = req.body?.copyTables === undefined ? true : req.body.copyTables;
     const copyMenu = req.body?.copyMenu === undefined ? true : req.body.copyMenu;
 
     if (
         !isDate(fromDate) ||
         !isDate(toDate) ||
-        !isId(weeks) ||
         typeof copyTables !== 'boolean' ||
         typeof copyMenu !== 'boolean'
     ) {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    const result = await copyWeek(fromDate, toDate, weeks, { copyTables, copyMenu });
-    // 200 when every slot was skipped and nothing was created
+    const result = await copyWeek(fromDate, toDate, { copyTables, copyMenu });
+    // Return 200 when every slot was skipped and nothing was created
     return res.status(result.created.length > 0 ? 201 : 200).json(result);
 });
 
