@@ -96,6 +96,7 @@ describe('authenticationDAO', () => {
         user_id: 3,
         name: 'Anna Winden',
         email: 'anna@mountainhut.test',
+        passwordToChange: false,
         role: 'hiker',
         phone: '+393401234567',
       });

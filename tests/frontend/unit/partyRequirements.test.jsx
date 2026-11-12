@@ -106,7 +106,8 @@ describe('createReservation: errors', () => {
     ['409 with another code and no message', 409, { error: 'OTHER' }, 'Slot no longer available.'],
     ['404 slot not found', 404, { error: 'SLOT_NOT_FOUND' }, 'Selected time slot was not found.'],
     ['400 with a message', 400, { message: 'Invalid requirements' }, 'Invalid requirements'],
-    ['400 with only an error code', 400, { error: 'INVALID_INPUT' }, 'Failed to create reservation.'],
+    ['400 INVALID_INPUT', 400, { error: 'INVALID_INPUT' }, 'Some booking details are invalid. Please review them and try again.'],
+    ['400 with another code only', 400, { error: 'OTHER' }, 'Failed to create reservation.'],
     ['500 with an empty body', 500, {}, 'Failed to create reservation.'],
   ])('%s -> readable message', async (_label, status, body, message) => {
     mockFetch(status, body);

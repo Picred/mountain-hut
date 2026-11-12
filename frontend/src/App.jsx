@@ -2,13 +2,19 @@ import './App.css';
 import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router';
 import LoginForm from './components/AuthComponents/LoginForm';
 import RegisterForm from './components/AuthComponents/RegistrationForm';
+import ChangePasswordForm from './components/AuthComponents/ChangePasswordForm';
+import ForgotPasswordForm from './components/AuthComponents/ForgotPasswordForm';
 import { useEffect, useState } from 'react';
 import authAPI from './api/auth_api'; // Assicurati che il nome del file coincida
 import { Homepage } from './pages/Homepage';
 import { Layout } from './pages/Layout';
 import { ReservationPage } from './pages/ReservationPage';
+import { EmployeeReservationPage } from './pages/EmployeeReservationPage';
 import { CapacityPage } from './pages/CapacityPage';
 import { MyReservationsPage } from './pages/MyReservationsPage';
+import { LocationPage } from './pages/Location';
+import { ServicesPage } from './pages/Services';
+import { ExcursionsPage } from './pages/Excursions';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -54,6 +60,17 @@ export const App = () => {
     }
   }, [message]);
 
+  // Goes back to the page the user came from (the homepage by default),
+  // keeping the booking selection made before the login, if any.
+  const goBack = () => {
+    navigate(location.state?.from || "/", {
+      replace: true,
+      state: location.state?.reservation
+        ? { reservation: location.state.reservation }
+        : undefined,
+    });
+  };
+
   // Handler for login
   const handleLogin = async (email, password) => {
     try {
@@ -61,14 +78,14 @@ export const App = () => {
       setLoggedIn(true);
       setUser(loggedUser);
       setMessage({ msg: "Logged in successfully!", type: "success" });
-      // Goes back to the page the user came from (the homepage by default),
-      // keeping the booking selection made before the login, if any.
-      navigate(location.state?.from || "/", {
-        replace: true,
-        state: location.state?.reservation
-          ? { reservation: location.state.reservation }
-          : undefined,
-      });
+
+      if (loggedUser.passwordToChange) {
+        // A temporary password must be replaced before using the site.
+        navigate("/change-password", { replace: true, state: location.state ?? undefined });
+        return;
+      }
+
+      goBack();
     } catch (err) {
       throw new Error(
         err.message || "Invalid email or password. Please try again."
@@ -90,6 +107,28 @@ export const App = () => {
       );
     }
   }
+
+  // Handler for the change of a temporary password
+  const handleChangePassword = async (newPassword) => {
+    try {
+      const updatedUser = await authAPI.changePassword(newPassword);
+      setUser(updatedUser);
+      setMessage({ msg: "Password changed successfully!", type: "success" });
+      goBack();
+    } catch (err) {
+      throw new Error(
+        err.message || "Could not change the password. Please try again."
+      );
+    }
+  }
+
+  // Handler for the new password chosen from the recovery link (/reset-password?token=...)
+  const handleResetPassword = async (newPassword) => {
+    const token = new URLSearchParams(location.search).get('token') ?? '';
+    await authAPI.confirmPasswordReset(token, newPassword);
+    setMessage({ msg: "Password changed: log in with the new password.", type: "success" });
+    navigate("/login", { replace: true });
+  };
 
   // 5. Handler for Logout
   const handleLogout = async () => {
@@ -135,6 +174,19 @@ export const App = () => {
         </div>
       )}
 
+      {/* Until the temporary password is changed, only the change-password page is available. */}
+      {loggedIn && user?.passwordToChange && location.pathname !== "/change-password" && (
+        <Navigate
+          to="/change-password"
+          replace
+          state={
+            location.state ?? {
+              from: ["/login", "/register"].includes(location.pathname) ? "/" : location.pathname,
+            }
+          }
+        />
+      )}
+
       <Routes>
         <Route
           path="/"
@@ -148,6 +200,11 @@ export const App = () => {
         >
           <Route index element={<Homepage />} />
 
+          {/* Detail pages opened from the homepage cards. */}
+          <Route path="/location" element={<LocationPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/excursions" element={<ExcursionsPage />} />
+
           <Route
             path="/reservations"
             element={
@@ -156,7 +213,11 @@ export const App = () => {
                   Checking session...
                 </div>
               ) : loggedIn && user?.role !== 'hiker' ? (
-                <Navigate to="/" replace />
+                // Employees enter reservations from their own page.
+                <Navigate
+                  to={user?.role === 'employee' ? '/employee/reservations' : '/'}
+                  replace
+                />
               ) : (
                 // Visitors and hikers: anyone can check the availability,
                 // only logged-in hikers can reserve.
@@ -187,6 +248,27 @@ export const App = () => {
           />
 
           <Route
+            path="/employee/reservations"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate
+                  to="/login"
+                  replace
+                  state={{ from: location.pathname }}
+                />
+              ) : user?.role !== "employee" ? (
+                <Navigate to="/" replace />
+              ) : (
+                <EmployeeReservationPage />
+              )
+            }
+          />
+
+          <Route
             path="/capacity"
             element={
               sessionLoading ? (
@@ -208,8 +290,49 @@ export const App = () => {
           />
 
           <Route
+            path="/change-password"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate to="/login" replace />
+              ) : !user?.passwordToChange ? (
+                <Navigate to={location.state?.from || "/"} replace />
+              ) : (
+                <ChangePasswordForm onChangePassword={handleChangePassword} />
+              )
+            }
+          />
+
+          <Route
             path="/login"
             element={<LoginForm onLogin={handleLogin} />}
+          />
+
+          <Route
+            path="/forgot-password"
+            element={
+              loggedIn ? (
+                <Navigate to="/" replace />
+              ) : (
+                <ForgotPasswordForm onResetPassword={authAPI.resetPassword} />
+              )
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              loggedIn ? (
+                <Navigate to="/" replace />
+              ) : (
+                <ChangePasswordForm
+                  onChangePassword={handleResetPassword}
+                  subtitle="Choose a new password for your account. The link is valid for 24 hours and can be used only once."
+                />
+              )
+            }
           />
 
           <Route

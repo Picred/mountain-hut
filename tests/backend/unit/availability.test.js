@@ -461,7 +461,7 @@ describe('slotRoutes', () => {
 
             await getSlots(req, res);
 
-            expect(getSlotsByDateMock).toHaveBeenCalledWith('2026-11-15');
+            expect(getSlotsByDateMock).toHaveBeenCalledWith('2026-11-15', false);
             expect(res.status).toHaveBeenCalledWith(200);
             expect(res.json).toHaveBeenCalledWith(slots);
         });
@@ -506,7 +506,7 @@ describe('slotRoutes', () => {
 
             await getSlots(req, res);
 
-            expect(getSlotsByDateMock).toHaveBeenCalledWith('2026-11-15');
+            expect(getSlotsByDateMock).toHaveBeenCalledWith('2026-11-15', false);
             expect(res.status).toHaveBeenCalledWith(200);
             expect(res.json).toHaveBeenCalledWith([]);
         });
@@ -525,7 +525,7 @@ describe('slotRoutes', () => {
                 getSlots(req, res)
             ).rejects.toThrow('Database error');
 
-            expect(getSlotsByDateMock).toHaveBeenCalledWith('2026-11-15');
+            expect(getSlotsByDateMock).toHaveBeenCalledWith('2026-11-15', false);
             expect(res.json).not.toHaveBeenCalled();
         });
 

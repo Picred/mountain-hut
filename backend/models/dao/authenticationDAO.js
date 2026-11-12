@@ -19,7 +19,8 @@ export const getUser = (email, password) => {
                 name: row.name,
                 email: row.email, 
                 role: row.role,
-                phone: row.phone
+                phone: row.phone,
+                passwordToChange: row.password_to_change === 1
             };
 
             crypto.scrypt(password, row.salt, 32, (err, hashedPassword) => {
@@ -34,6 +35,19 @@ export const getUser = (email, password) => {
 
                 resolve(user);
             });
+        });
+    });
+};
+
+
+// Hashes a password with a new random salt, in the format checked by getUser
+export const hashPassword = (password) => {
+    return new Promise((resolve, reject) => {
+        const salt = crypto.randomBytes(16).toString('hex');
+
+        crypto.scrypt(password, salt, 32, (err, hashedPassword) => {
+            if (err) return reject(err);
+            resolve({ salt, passwordHash: hashedPassword.toString('hex') });
         });
     });
 };
@@ -70,6 +84,86 @@ export const createUser = (name, email, phone, password, role = 'hiker') => {
                     role 
                 });
             });
+        });
+    });
+};
+
+
+export const changePassword = (user_id, newPassword, passwordToChange = 0) => {
+    return new Promise((resolve, reject)=> {
+        const salt = crypto.randomBytes(16).toString('hex');
+
+        crypto.scrypt(newPassword, salt, 32, (err, hashedPassword) => {
+            if (err) return reject(err);
+
+            const sql = `
+                UPDATE users
+                SET salt = ?, password_hash = ?, password_to_change = ?,
+                reset_token_hash = NULL, reset_token_expires_at = NULL
+                WHERE user_id = ?
+            `;
+
+            const passwordHashHex = hashedPassword.toString('hex');
+
+            db.run(sql, [salt, passwordHashHex, passwordToChange, user_id], function (err) {
+                if (err) return reject(err);
+                resolve(this.changes === 1);
+            });
+        });
+        
+    })
+}
+
+export const getHikerByEmail = (email) => {
+    return new Promise((resolve,reject) => {
+        const sql = `
+        SELECT user_id, name, email, role
+        FROM users
+        WHERE email = ? AND role = 'hiker'
+        `
+
+        db.get(sql, [email], (err,row) => {
+            if(err) return reject(err);
+            if(!row) return resolve(null);
+            return resolve({
+                user_id: row.user_id,
+                name: row.name,
+                email: row.email,
+                role: row.role,
+            })
+            
+        })
+    })
+}
+
+// Saves the hash of a password reset token, replacing any previous one
+export const saveResetToken = (user_id, tokenHash, expiresAt) => {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            UPDATE users
+            SET reset_token_hash = ?, reset_token_expires_at = ?
+            WHERE user_id = ?
+        `;
+
+        db.run(sql, [tokenHash, expiresAt, user_id], function (err) {
+            if (err) return reject(err);
+            resolve(this.changes === 1);
+        });
+    });
+};
+
+// The user with this reset token, if it has not expired (null otherwise)
+export const getUserByResetToken = (tokenHash) => {
+    return new Promise((resolve, reject) => {
+        const sql = `
+            SELECT user_id
+            FROM users
+            WHERE reset_token_hash = ? AND reset_token_expires_at > ?
+        `;
+
+        db.get(sql, [tokenHash, new Date().toISOString()], (err, row) => {
+            if (err) return reject(err);
+            resolve(row ? { user_id: row.user_id } : null);
         });
     });
 };
