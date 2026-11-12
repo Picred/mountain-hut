@@ -1,4 +1,8 @@
+import sqlite from 'sqlite3';
+
+import { DB_PATH } from '../../db/db.js';
 import { dbAll, dbGet, dbRun } from '../../utils/dbHelpers.js';
+import { runExclusive } from '../../utils/transactionQueue.js';
 
 import BadRequestError from '../errors/BadRequestError.js';
 import NotFoundError from '../errors/NotFoundError.js';
@@ -204,4 +208,191 @@ export const copyTablesToSlot = async (slotId, fromSlotId) => {
     }
 
     return addTablesToSlot(slotId, rows.map(row => row.table_id));
+};
+
+// Copy of a week of slots
+
+// Dates are handled as days of the calendar (YYYY-MM-DD), without time zones
+const DAY_MS = 24 * 60 * 60 * 1000;
+const toDayNumber = date => Date.parse(`${date}T00:00:00Z`) / DAY_MS;
+const fromDayNumber = day => new Date(day * DAY_MS).toISOString().slice(0, 10);
+
+// the Monday of the week (Monday to Sunday) that contains the date
+const mondayOf = date => {
+    const day = toDayNumber(date);
+    const weekday = (new Date(day * DAY_MS).getUTCDay() + 6) % 7; // 0 = Monday
+    return fromDayNumber(day - weekday);
+};
+
+const SQLITE_VARIABLES_PER_QUERY = 500;
+
+// the slots (with tables) with these ids, in the same format as getSlot
+const getSlotsById = async slotIds => {
+    const slots = [];
+
+    for (let i = 0; i < slotIds.length; i += SQLITE_VARIABLES_PER_QUERY) {
+        const chunk = slotIds.slice(i, i + SQLITE_VARIABLES_PER_QUERY);
+        const rows = await dbAll(`
+            ${SLOT_SELECT}
+            WHERE s.slot_id IN (${chunk.map(() => '?').join(',')})
+            ORDER BY s.start_at, t.table_code, t.seats
+        `, chunk);
+
+        slots.push(...buildSlots(rows));
+    }
+
+    return slots.sort((a, b) => a.startAt.localeCompare(b.startAt));
+};
+
+/**
+ * copies the slots of a week into one or more other weeks
+ * - weeks go from Monday to Sunday, fromDate and toDate are any day of the week
+ * - the source week is copied into `weeks` consecutive weeks, starting from the
+ *   week of toDate (before or after the source week)
+ * - the tables and the menu of each slot can be copied too
+ * - a slot that overlaps an existing slot, or that would start in the past, is not
+ *   created: it is reported in `skipped`, the other slots are created anyway
+ */
+export const copyWeek = (fromDate, toDate, weeks = 1, { copyTables = true, copyMenu = true } = {}) =>
+    runExclusive(() => copyWeekInTransaction(fromDate, toDate, weeks, copyTables, copyMenu));
+
+const copyWeekInTransaction = async (fromDate, toDate, weeks, copyTables, copyMenu) => {
+    if (
+        Number.isNaN(Date.parse(`${fromDate}T00:00:00Z`)) ||
+        Number.isNaN(Date.parse(`${toDate}T00:00:00Z`)) ||
+        !Number.isInteger(weeks) || weeks <= 0 ||
+        typeof copyTables !== 'boolean' || typeof copyMenu !== 'boolean'
+    ) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    const fromMonday = mondayOf(fromDate);
+    const toMonday = mondayOf(toDate);
+    const fromSunday = fromDayNumber(toDayNumber(fromMonday) + 6);
+
+    // The source week cannot be one of the weeks to fill
+    const firstTarget = toDayNumber(toMonday);
+    const lastTarget = firstTarget + 7 * (weeks - 1);
+    const source = toDayNumber(fromMonday);
+    if (source >= firstTarget && source <= lastTarget) {
+        throw new BadRequestError('SOURCE_WEEK_IN_TARGET_WEEKS');
+    }
+
+    // Own connection for the transaction
+    const connection = new sqlite.Database(DB_PATH, sqlite.OPEN_READWRITE);
+    let transactionStarted = false;
+
+    try {
+        await dbRun('PRAGMA foreign_keys = ON', [], connection);
+        await dbRun('BEGIN IMMEDIATE', [], connection);
+        transactionStarted = true;
+
+        const sourceSlots = await dbAll(`
+            SELECT slot_id AS slotId, start_at AS startAt, end_at AS endAt
+            FROM slots
+            WHERE DATE(start_at, 'localtime') BETWEEN ? AND ?
+            ORDER BY start_at
+        `, [fromMonday, fromSunday], connection);
+
+        if (sourceSlots.length === 0) {
+            throw new BadRequestError('NO_SLOTS_TO_COPY');
+        }
+
+        const now = new Date().toISOString();
+        const createdIds = [];
+        const skipped = [];
+
+        for (let week = 0; week < weeks; week++) {
+            const days = firstTarget - source + 7 * week;
+            const shift = `${days >= 0 ? '+' : ''}${days} days`;
+
+            for (const sourceSlot of sourceSlots) {
+                // The shift is made on the local time
+                const shifted = await dbGet(`
+                    SELECT
+                        strftime('%Y-%m-%dT%H:%M:%fZ', ?1, 'localtime', ?3, 'utc') AS startAt,
+                        strftime('%Y-%m-%dT%H:%M:%fZ', ?2, 'localtime', ?3, 'utc') AS endAt
+                `, [sourceSlot.startAt, sourceSlot.endAt, shift], connection);
+
+                // dates after the year 9999
+                if (!shifted?.startAt || !shifted?.endAt) {
+                    throw new BadRequestError('INVALID_INPUT');
+                }
+
+                const { startAt, endAt } = shifted;
+
+                if (endAt <= startAt) {
+                    skipped.push({ startAt, endAt, reason: 'INVALID_TIME_RANGE' });
+                    continue;
+                }
+                if (startAt <= now) {
+                    skipped.push({ startAt, endAt, reason: 'SLOT_IN_THE_PAST' });
+                    continue;
+                }
+
+                const result = await dbRun(`
+                    INSERT INTO slots (start_at, end_at)
+                    SELECT ?, ?
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM slots WHERE start_at < ? AND end_at > ?
+                    )
+                `, [startAt, endAt, endAt, startAt], connection);
+
+                if (result.changes === 0) {
+                    skipped.push({ startAt, endAt, reason: 'SLOT_OVERLAP' });
+                    continue;
+                }
+
+                const slotId = result.lastID;
+
+                // The tables and the menu are copied as they are, also when empty
+                if (copyTables) {
+                    await dbRun(`
+                        INSERT INTO slot_tables (slot_id, table_id)
+                        SELECT ?, table_id FROM slot_tables WHERE slot_id = ?
+                    `, [slotId, sourceSlot.slotId], connection);
+                }
+
+                if (copyMenu) {
+                    await dbRun(`
+                        INSERT INTO slots_dishes (slot_id, dish_id)
+                        SELECT ?, dish_id FROM slots_dishes WHERE slot_id = ?
+                    `, [slotId, sourceSlot.slotId], connection);
+                }
+
+                createdIds.push(slotId);
+            }
+        }
+
+        await dbRun('COMMIT', [], connection);
+        transactionStarted = false;
+
+        return {
+            fromWeek: fromMonday,
+            toWeek: toMonday,
+            weeks,
+            copyTables,
+            copyMenu,
+            created: await getSlotsById(createdIds),
+            skipped
+        };
+    } catch (err) {
+        if (transactionStarted) {
+            try {
+                await dbRun('ROLLBACK', [], connection);
+            } catch (rollbackErr) {
+                console.error('Rollback failed:', rollbackErr);
+            }
+        }
+        throw err;
+    } finally {
+        await new Promise(resolve => {
+            connection.close(closeErr => {
+                if (closeErr) {
+                    console.error('Failed to close database connection:', closeErr);
+                }
+                resolve();
+            });
+        });
+    }
 };
