@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import capacityAPI from "../api/capacity_api";
 import Calendar from "../components/Calendar";
+import CopyWeeklySchedule from "../components/CopyWeeklySchedule";
 
 // Convert a Date to a local YYYY-MM-DD key for calendar grouping.
 const dateKey = (date) => {
@@ -42,6 +43,19 @@ export const CapacityPage = () => {
     const [showCreateTableForm, setShowCreateTableForm] = useState(false);
     const [newTableCode, setNewTableCode] = useState("");
     const [newTableSeats, setNewTableSeats] = useState("");
+
+    const [showCopyWeeklySchedule, setShowCopyWeeklySchedule] = useState(false);
+
+    const handleWeeklyScheduleCopied = async () => {
+        try {
+            const updatedSlots = await capacityAPI.getSlots();
+            setSlots(updatedSlots);
+            setSelectedSlotId(null);
+            setError(null);
+        } catch (err) {
+            setError(err.message);
+        }
+    };
 
 
     // Load slots and reusable tables once when the page mounts.
@@ -276,6 +290,14 @@ export const CapacityPage = () => {
                 </div>
                 <p className="text-slate-300">Choose a date to manage dining time slots and table capacity.</p>
             </header>
+
+            <button
+                type="button"
+                onClick={() => setShowCopyWeeklySchedule(true)}
+                className="btn mb-6 bg-sky-300 hover:bg-sky-400 border-sky-300 hover:border-sky-400 text-slate-950 font-semibold"
+            >
+                Copy Weekly Schedule
+            </button>
 
             {error && (
                 <div role="alert" className="mb-6 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-300">
@@ -571,6 +593,14 @@ export const CapacityPage = () => {
                     )}
                 </div>
             </div>
+
+            {showCopyWeeklySchedule && (
+                <CopyWeeklySchedule
+                    onClose={() => setShowCopyWeeklySchedule(false)}
+                    onSuccess={handleWeeklyScheduleCopied}
+                />
+            )}
+
         </section>
     );
 };
