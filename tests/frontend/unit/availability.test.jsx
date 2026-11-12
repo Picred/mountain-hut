@@ -55,6 +55,7 @@ const AVAILABLE_SLOT = {
   slotId: 1,
   startTime: '12:00',
   endTime: '13:00',
+  availableSeats: 4,
   bookingAllowed: true,
   restrictionReason: null,
 };
@@ -240,11 +241,24 @@ describe('ReservationPage - US4 availability', () => {
     expect(
       await screen.findByRole('button', { name: /12:00.*13:00/ })
     ).toBeInTheDocument();
+    expect(screen.getByText('4 seats available')).toHaveClass('text-emerald-300');
 
     expect(fetchMock).toHaveBeenCalledWith(
       `${SERVER_URL}/slots?date=${todayKey()}`,
       { credentials: 'include' }
     );
+  });
+
+  it('shows zero available seats in red', async () => {
+    const user = userEvent.setup();
+    const fullSlot = { ...AVAILABLE_SLOT, availableSeats: 0 };
+
+    fetchMock.mockResolvedValue(mockResponse({ body: [fullSlot] }));
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: todayKey() }));
+
+    expect(await screen.findByText('0 seats available')).toHaveClass('text-red-300');
   });
 
   it('allows a guest to check availability without logging in', async () => {

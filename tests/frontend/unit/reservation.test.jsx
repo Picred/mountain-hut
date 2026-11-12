@@ -135,7 +135,7 @@ describe('reservation_api', () => {
 
     it('sends GET to /slots with encoded date and returns slots', async () => {
       const mockSlots = [
-        { slotId: 1, startTime: '12:00', endTime: '13:00', bookingAllowed: true, restrictionReason: null },
+        { slotId: 1, startTime: '12:00', endTime: '13:00', availableSeats: 4, bookingAllowed: true, restrictionReason: null },
       ];
       fetchMock.mockResolvedValue(mockResponse({ status: 200, body: mockSlots }));
 
@@ -252,7 +252,7 @@ describe('ReservationPage', () => {
   it('loads slots when a date is selected', async () => {
     const user = userEvent.setup();
     const mockSlots = [
-      { slotId: 1, startTime: '12:00', endTime: '13:00', bookingAllowed: true },
+      { slotId: 1, startTime: '12:00', endTime: '13:00', availableSeats: 4, bookingAllowed: true },
     ];
     fetchMock.mockResolvedValue(mockResponse({ status: 200, body: mockSlots }));
 
@@ -266,7 +266,7 @@ describe('ReservationPage', () => {
   it('submits reservation and displays confirmation on success', async () => {
     const user = userEvent.setup();
     const mockSlots = [
-      { slotId: 1, startTime: '12:00', endTime: '13:00', bookingAllowed: true },
+      { slotId: 1, startTime: '12:00', endTime: '13:00', availableSeats: 4, bookingAllowed: true },
     ];
     const mockReservation = {
       reservationId: 123,

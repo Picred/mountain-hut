@@ -56,6 +56,8 @@ describe('Reservation e2e', () => {
         expect(res.body[0]).toHaveProperty('startTime');
         expect(res.body[0]).toHaveProperty('endTime');
         expect(res.body[0]).toHaveProperty('bookingAllowed');
+        expect(res.body[0]).toHaveProperty('availableSeats');
+        expect(Number.isInteger(res.body[0].availableSeats)).toBe(true);
       }
     });
   });
@@ -624,6 +626,5 @@ describe('Reservation e2e', () => {
   })
 
 });
-
 
 
