@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import capacityAPI from "../api/capacity_api";
 import Calendar from "../components/Calendar";
 import CopyWeeklySchedule from "../components/CopyWeeklySchedule";
+import SlotMenuEditor from "../components/SlotMenuEditor";
 
 // Convert a Date to a local YYYY-MM-DD key for calendar grouping.
 const dateKey = (date) => {
@@ -45,6 +46,7 @@ export const CapacityPage = () => {
     const [newTableSeats, setNewTableSeats] = useState("");
 
     const [showCopyWeeklySchedule, setShowCopyWeeklySchedule] = useState(false);
+    const [expandedSection, setExpandedSection] = useState(null);
 
     const handleWeeklyScheduleCopied = async () => {
         try {
@@ -91,13 +93,16 @@ export const CapacityPage = () => {
         return grouped;
     }, [slots]);
 
-    // Mark calendar dates according to whether all their slots have tables.
+    // Mark calendar dates according to whether all their slots
+    // have both tables and menus configured.
     const dateStatuses = useMemo(() => {
         const statuses = {};
 
         for (const [date, daySlots] of slotsByDate.entries()) {
             const allConfigured = daySlots.every(
-                (slot) => (slot.tables?.length ?? 0) > 0
+                (slot) =>
+                    (slot.tables?.length ?? 0) > 0 &&
+                    Boolean(slot.menu?.trim())
             );
 
             statuses[date] = allConfigured ? "success" : "warning";
@@ -123,9 +128,15 @@ export const CapacityPage = () => {
         setCreateTableError("");
     };
 
-    // Expand or collapse a slot and reset its table-selection controls.
-    const toggleSlot = (slotId) => {
-        setSelectedSlotId((current) => (current === slotId ? null : slotId));
+    // Expand or collapse the selected section of a slot.
+    const toggleSlot = (slotId, section) => {
+        const isAlreadyOpen =
+            selectedSlotId === slotId && expandedSection === section;
+
+        setSelectedSlotId(isAlreadyOpen ? null : slotId);
+        setExpandedSection(isAlreadyOpen ? null : section);
+
+        // Reset table controls when switching sections.
         setSelectedTableIds([]);
         setSourceSlotId("");
         setTableMode("assign");
@@ -312,6 +323,7 @@ export const CapacityPage = () => {
                     selectedDate={selectedDate}
                     onDateSelect={selectDate}
                     dateStatuses={dateStatuses}
+                    minDate={dateKey(new Date())}
                     statusLegend={[
                         {
                             status: "success",
@@ -319,7 +331,7 @@ export const CapacityPage = () => {
                         },
                         {
                             status: "warning",
-                            label: "Some slots need tables",
+                            label: "Some slots need tables or menus",
                         },
                     ]}
                 />
@@ -395,7 +407,10 @@ export const CapacityPage = () => {
                             {daySlots.map((slot) => {
                                 // A slot becomes bookable only after tables are assigned.
                                 const configured = (slot.tables?.length ?? 0) > 0;
+                                const menuConfigured = Boolean(slot.menu?.trim());
                                 const expanded = selectedSlotId === slot.slotId;
+                                const tablesExpanded = expanded && expandedSection === "tables";
+                                const menuExpanded = expanded && expandedSection === "menu";
                                 // Only other configured slots can be used as copy sources.
                                 const sourceSlots = slots.filter((other) => other.slotId !== slot.slotId && (other.tables?.length ?? 0) > 0);
                                 return (
@@ -407,38 +422,104 @@ export const CapacityPage = () => {
                                                 <p className={`mt-2 text-xs font-medium ${configured ? "text-emerald-300" : "text-amber-300"}`}>
                                                     {configured ? "Table set configured" : "No tables assigned · Not bookable"}
                                                 </p>
+                                                <p
+                                                    className={`mt-1 text-xs font-medium ${menuConfigured ? "text-emerald-300" : "text-amber-300"
+                                                        }`}
+                                                >
+                                                    {menuConfigured ? "Menu configured" : "No menu defined"}
+                                                </p>
                                             </div>
+                                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleSlot(slot.slotId, "tables")}
+                                                    aria-label={tablesExpanded ? (configured ? "Close" : "Cancel") : (configured ? "View Tables" : "Assign Tables")}
+                                                    aria-expanded={tablesExpanded}
+                                                    title={tablesExpanded ? (configured ? "Close" : "Cancel") : (configured ? "View Tables" : "Assign Tables")}
+                                                    className={`flex shrink-0 items-center justify-center gap-2 whitespace-nowrap cursor-pointer h-11 px-4 rounded-xl border font-semibold text-sm transition-colors ${tablesExpanded
+                                                        ? "bg-sky-300 text-slate-950 border-sky-300"
+                                                        : "bg-sky-300/10 border-sky-300/30 text-sky-300 hover:bg-sky-300/20"
+                                                        }`}
+                                                >
+                                                    {tablesExpanded ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                                                    ) : configured ? (
+                                                        <svg width="35" height="35" className="shrink-0" fill="currentColor" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-30.04 -30.04 274.62 274.62" xml:space="preserve"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <path d="M121.164,154.578h-6.625V89.14h38.937c4.014,0,7.269-3.254,7.269-7.269s-3.254-7.269-7.269-7.269h-92.41 c-4.014,0-7.269,3.254-7.269,7.269s3.254,7.269,7.269,7.269h38.936v65.438h-6.625c-4.014,0-7.269,3.254-7.269,7.27 c0,4.015,3.254,7.269,7.269,7.269h27.787c4.015,0,7.27-3.254,7.27-7.269C128.433,157.832,125.179,154.578,121.164,154.578z"></path> <path d="M73.783,120.777c0-4.014-3.254-7.269-7.269-7.269H54.833H34.219c-11.08,0-13.41-16.14-13.509-16.869l-6.239-45.122 c-0.55-3.977-4.217-6.748-8.196-6.205c-3.976,0.55-6.754,4.219-6.205,8.196l6.229,45.053c0.831,6.47,4.167,16.593,11.367,23.133 l-7.485,38.956c-0.758,3.942,1.824,7.752,5.766,8.509c3.946,0.761,7.752-1.825,8.509-5.766l6.792-35.349h17.579l6.792,35.349 c0.668,3.479,3.714,5.897,7.13,5.897c0.455,0,0.916-0.043,1.379-0.132c3.942-0.757,6.524-4.566,5.766-8.509l-6.265-32.605h2.883 C70.527,128.046,73.783,124.791,73.783,120.777z"></path> <path d="M208.267,45.313c-3.975-0.543-7.646,2.229-8.196,6.205l-6.244,45.165c-0.094,0.687-2.424,16.827-13.504,16.827h-20.614 h-11.681c-4.014,0-7.27,3.254-7.27,7.269s3.255,7.269,7.27,7.269h2.883l-6.265,32.605c-0.758,3.942,1.824,7.752,5.766,8.509 c3.946,0.761,7.752-1.825,8.509-5.766l6.792-35.349h17.579l6.792,35.349c0.668,3.479,3.714,5.897,7.13,5.897 c0.455,0,0.916-0.043,1.38-0.132c3.941-0.757,6.523-4.566,5.766-8.509l-7.485-38.953c7.198-6.534,10.532-16.64,11.357-23.065 l6.238-45.123C215.021,49.533,212.242,45.863,208.267,45.313z"></path> </g> </g> </g></svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
+                                                    )}
 
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleSlot(slot.slotId)}
-                                                aria-label={expanded ? (configured ? "Close" : "Cancel") : (configured ? "View Tables" : "Assign Tables")}
-                                                aria-expanded={expanded}
-                                                title={expanded ? (configured ? "Close" : "Cancel") : (configured ? "View Tables" : "Assign Tables")}
-                                                className={`flex shrink-0 items-center justify-center gap-2 whitespace-nowrap cursor-pointer h-11 px-4 rounded-xl border font-semibold text-sm transition-colors ${expanded
-                                                    ? "bg-sky-300 text-slate-950 border-sky-300"
-                                                    : "bg-sky-300/10 border-sky-300/30 text-sky-300 hover:bg-sky-300/20"
-                                                    }`}
-                                            >
-                                                {expanded ? (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                                                ) : configured ? (
-                                                    <svg width="35" height="35" className="shrink-0" fill="currentColor" version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-30.04 -30.04 274.62 274.62" xml:space="preserve"><g id="SVGRepo_bgCarrier" strokeWidth="0"></g><g id="SVGRepo_tracerCarrier" strokeLinecap="round" strokeLinejoin="round"></g><g id="SVGRepo_iconCarrier"> <g> <g> <path d="M121.164,154.578h-6.625V89.14h38.937c4.014,0,7.269-3.254,7.269-7.269s-3.254-7.269-7.269-7.269h-92.41 c-4.014,0-7.269,3.254-7.269,7.269s3.254,7.269,7.269,7.269h38.936v65.438h-6.625c-4.014,0-7.269,3.254-7.269,7.27 c0,4.015,3.254,7.269,7.269,7.269h27.787c4.015,0,7.27-3.254,7.27-7.269C128.433,157.832,125.179,154.578,121.164,154.578z"></path> <path d="M73.783,120.777c0-4.014-3.254-7.269-7.269-7.269H54.833H34.219c-11.08,0-13.41-16.14-13.509-16.869l-6.239-45.122 c-0.55-3.977-4.217-6.748-8.196-6.205c-3.976,0.55-6.754,4.219-6.205,8.196l6.229,45.053c0.831,6.47,4.167,16.593,11.367,23.133 l-7.485,38.956c-0.758,3.942,1.824,7.752,5.766,8.509c3.946,0.761,7.752-1.825,8.509-5.766l6.792-35.349h17.579l6.792,35.349 c0.668,3.479,3.714,5.897,7.13,5.897c0.455,0,0.916-0.043,1.379-0.132c3.942-0.757,6.524-4.566,5.766-8.509l-6.265-32.605h2.883 C70.527,128.046,73.783,124.791,73.783,120.777z"></path> <path d="M208.267,45.313c-3.975-0.543-7.646,2.229-8.196,6.205l-6.244,45.165c-0.094,0.687-2.424,16.827-13.504,16.827h-20.614 h-11.681c-4.014,0-7.27,3.254-7.27,7.269s3.255,7.269,7.27,7.269h2.883l-6.265,32.605c-0.758,3.942,1.824,7.752,5.766,8.509 c3.946,0.761,7.752-1.825,8.509-5.766l6.792-35.349h17.579l6.792,35.349c0.668,3.479,3.714,5.897,7.13,5.897 c0.455,0,0.916-0.043,1.38-0.132c3.941-0.757,6.523-4.566,5.766-8.509l-7.485-38.953c7.198-6.534,10.532-16.64,11.357-23.065 l6.238-45.123C215.021,49.533,212.242,45.863,208.267,45.313z"></path> </g> </g> </g></svg>
-                                                ) : (
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
-                                                )}
+                                                    <span>
+                                                        {tablesExpanded
+                                                            ? (configured ? "Close" : "Cancel")
+                                                            : (configured ? "View Tables" : "Assign Tables")}
+                                                    </span>
+                                                </button>
 
-                                                <span>
-                                                    {expanded
-                                                        ? (configured ? "Close" : "Cancel")
-                                                        : (configured ? "View Tables" : "Assign Tables")}
-                                                </span>
-                                            </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleSlot(slot.slotId, "menu")}
+                                                    aria-expanded={menuExpanded}
+                                                    aria-label={
+                                                        menuExpanded
+                                                            ? "Close"
+                                                            : slot.menu
+                                                                ? "Edit Menu"
+                                                                : "Define Menu"
+                                                    }
+                                                    className={`flex h-11 shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-4 text-sm font-semibold transition-colors ${menuExpanded
+                                                        ? "border-sky-300 bg-sky-300 text-slate-950"
+                                                        : "border-sky-300/30 bg-sky-300/10 text-sky-300 hover:bg-sky-300/20"
+                                                        }`}
+                                                >
+                                                    {menuExpanded ? (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="20"
+                                                            height="20"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M18 6 6 18" />
+                                                            <path d="m6 6 12 12" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="20"
+                                                            height="20"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <path d="M4 3v7a3 3 0 0 0 6 0V3" />
+                                                            <path d="M7 3v19" />
+                                                            <path d="M20 22V3a5 5 0 0 0-5 5v6h5" />
+                                                        </svg>
+                                                    )}
+                                                    {menuExpanded
+                                                        ? "Close"
+                                                        : new Date(slot.startAt) <= new Date()
+                                                            ? "View Menu"
+                                                            : slot.menu
+                                                                ? "Edit Menu"
+                                                                : "Define Menu"}
+                                                </button>
+                                            </div>
 
                                         </div>
 
                                         {/* Expanded panel: view assigned tables or configure an empty slot. */}
-                                        {expanded && (
+                                        {tablesExpanded && (
                                             <div className="mt-5 pt-5 border-t border-white/10">
                                                 {configured ? (
                                                     <>
@@ -584,6 +665,32 @@ export const CapacityPage = () => {
                                                         )}
                                                     </>
                                                 )}
+                                            </div>
+                                        )}
+                                        {menuExpanded && (
+                                            <div className="mt-5 border-t border-white/10 pt-5">
+                                                <SlotMenuEditor
+                                                    key={slot.slotId}
+                                                    slot={slot}
+                                                    onMenuSaved={(savedMenu) => {
+                                                        setSlots((currentSlots) =>
+                                                            currentSlots.map((currentSlot) =>
+                                                                currentSlot.slotId === slot.slotId
+                                                                    ? { ...currentSlot, menu: savedMenu }
+                                                                    : currentSlot
+                                                            )
+                                                        );
+                                                    }}
+                                                    onMenuDeleted={() => {
+                                                        setSlots((currentSlots) =>
+                                                            currentSlots.map((currentSlot) =>
+                                                                currentSlot.slotId === slot.slotId
+                                                                    ? { ...currentSlot, menu: null }
+                                                                    : currentSlot
+                                                            )
+                                                        );
+                                                    }}
+                                                />
                                             </div>
                                         )}
                                     </article>

@@ -16,6 +16,7 @@ const SLOT_SELECT = `
         s.slot_id,
         s.start_at,
         s.end_at,
+        s.menu,
         t.table_id,
         t.table_code,
         t.seats
@@ -35,6 +36,7 @@ const buildSlots = rows => {
                 slotId: row.slot_id,
                 startAt: row.start_at,
                 endAt: row.end_at,
+                menu: row.menu,
                 hasTables: false,
                 totalSeats: 0,
                 tables: []
@@ -287,7 +289,7 @@ const copyWeekInTransaction = async (fromDate, toDate, copyTables, copyMenu) => 
 
         // 1. Fetch all source slots for the source week
         const sourceSlots = await dbAll(`
-            SELECT slot_id AS slotId, start_at AS startAt, end_at AS endAt
+            SELECT slot_id AS slotId, start_at AS startAt, end_at AS endAt, menu
             FROM slots
             WHERE DATE(start_at, 'localtime') BETWEEN ? AND ?
             ORDER BY start_at
@@ -333,7 +335,7 @@ const copyWeekInTransaction = async (fromDate, toDate, copyTables, copyMenu) => 
                 WHERE slot_id IN (${placeholders})
             `, targetIds, connection);
 
-            // Delete all existing slots in the target week (slot_tables and slots_dishes cascade automatically)
+            // Delete all existing slots in the target week (slot_tables cascade automatically)
             await dbRun(`
                 DELETE FROM slots
                 WHERE slot_id IN (${placeholders})
@@ -373,24 +375,17 @@ const copyWeekInTransaction = async (fromDate, toDate, copyTables, copyMenu) => 
             }
 
             const result = await dbRun(`
-                INSERT INTO slots (start_at, end_at)
-                VALUES (?, ?)
-            `, [startAt, endAt], connection);
+                INSERT INTO slots (start_at, end_at, menu)
+                VALUES (?, ?, ?)
+            `, [startAt, endAt, copyMenu ? sourceSlot.menu : null], connection);
 
             const slotId = result.lastID;
 
-            // Copy tables and menu items as they are, even if empty
+            // Copy tables as they are, even if empty (the menu is copied with the slot)
             if (copyTables) {
                 await dbRun(`
                     INSERT INTO slot_tables (slot_id, table_id)
                     SELECT ?, table_id FROM slot_tables WHERE slot_id = ?
-                `, [slotId, sourceSlot.slotId], connection);
-            }
-
-            if (copyMenu) {
-                await dbRun(`
-                    INSERT INTO slots_dishes (slot_id, dish_id)
-                    SELECT ?, dish_id FROM slots_dishes WHERE slot_id = ?
                 `, [slotId, sourceSlot.slotId], connection);
             }
 
