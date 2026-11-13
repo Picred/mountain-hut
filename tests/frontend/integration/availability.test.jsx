@@ -12,7 +12,7 @@ const SERVER_URL = 'http://localhost:3001';
 // Only Date is faked, so the calendar always opens on November 2026; timers stay real
 const TODAY = new Date(2026, 10, 11, 11, 0);
 const DATE = '2026-11-11';
-const SLOTS = [{ slotId: 2, startTime: '19:00', endTime: '21:00', bookingAllowed: true, restrictionReason: null }];
+const SLOTS = [{ slotId: 2, startTime: '19:00', endTime: '21:00', availableSeats: 10, bookingAllowed: true, restrictionReason: null }];
 
 let server;
 
@@ -36,7 +36,7 @@ async function checkAsVisitor(user, partySize, availability) {
   render(<MemoryRouter initialEntries={['/reservations']}><App /></MemoryRouter>);
 
   await user.click(await screen.findByRole('button', { name: DATE }));
-  await user.click(await screen.findByRole('button', { name: '19:00 – 21:00' }));
+  await user.click(await screen.findByRole('button', { name: /19:00 – 21:00/ }));
   for (let i = 1; i < partySize; i++) await user.click(screen.getByRole('button', { name: 'Add one guest' }));
   await user.click(screen.getByRole('button', { name: 'Check availability' }));
 }

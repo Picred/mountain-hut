@@ -24,6 +24,11 @@ function at(dayOffset, hours, minutes = 0) {
   return d.toISOString();
 }
 
+function localDate(iso) {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 async function loginAs(email) {
   const agent = request.agent(BACKEND_URL);
   const res = await agent.post('/api/sessions').send({ email, password: 'password' });
@@ -74,6 +79,35 @@ describe('Capacity e2e', () => {
 
     const fits = await hiker.post('/api/reservations').send({ slotId, partySize: 6 });
     expect(fits.status).toBe(201);
+  });
+
+  it('reports free seats and restores them after a reservation is cancelled', async () => {
+    const employee = await loginEmployee();
+    const hiker = await loginHiker();
+    const startAt = at(45, 12);
+    const created = await createSlot(employee, startAt, at(45, 13));
+    expect(created.status).toBe(201);
+
+    const { slotId } = created.body;
+    const assigned = await employee.post(`/api/slots/${slotId}/tables`).send({ tableIds: [T1, T4] });
+    expect(assigned.status).toBe(201);
+
+    const date = localDate(startAt);
+    const slotsBeforeBooking = await request(BACKEND_URL).get('/api/slots').query({ date });
+    expect(slotsBeforeBooking.status).toBe(200);
+    expect(slotsBeforeBooking.body.find((slot) => slot.slotId === slotId).availableSeats).toBe(6);
+
+    const reservation = await hiker.post('/api/reservations').send({ slotId, partySize: 2 });
+    expect(reservation.status).toBe(201);
+
+    const slotsAfterBooking = await request(BACKEND_URL).get('/api/slots').query({ date });
+    expect(slotsAfterBooking.body.find((slot) => slot.slotId === slotId).availableSeats).toBe(4);
+
+    const cancelled = await hiker.delete(`/api/reservations/${reservation.body.reservationId}`);
+    expect(cancelled.status).toBe(200);
+
+    const slotsAfterCancellation = await request(BACKEND_URL).get('/api/slots').query({ date });
+    expect(slotsAfterCancellation.body.find((slot) => slot.slotId === slotId).availableSeats).toBe(6);
   });
 
   it('allows slots of any start time and duration in the same meal service, but not overlapping', async () => {
