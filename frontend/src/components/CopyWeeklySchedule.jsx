@@ -96,12 +96,14 @@ export default function CopyWeeklySchedule({ onClose, onSuccess }) {
                 destinationWeekStart
             );
 
+            // The destination week is replaced even when nothing is copied: always refresh the slots
+            await onSuccess();
+
             if (Array.isArray(result.created) && result.created.length === 0) {
                 setCopyError("No slots were copied. All slots were skipped.");
                 return;
             }
 
-            await onSuccess();
             onClose();
         } catch (error) {
             setCopyError(error.message || "Unable to copy weekly schedule.");
