@@ -128,11 +128,29 @@ describe('CopyWeeklySchedule', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     expect(onSuccess).not.toHaveBeenCalled();
 
-    finishCopy({ created: [], skipped: [] });
+    finishCopy({ created: [{ slotId: 100 }], skipped: [] });
 
     await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onSuccess.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0]);
+  });
+
+  it('refreshes the slots, tells the user and stays open when every slot is skipped', async () => {
+    capacityAPI.copyWeeklySchedule.mockResolvedValue({
+      created: [],
+      skipped: [{ startAt: '2020-01-06T11:00:00.000Z', endAt: '2020-01-06T13:00:00.000Z', reason: 'SLOT_IN_THE_PAST' }],
+    });
+    const { onClose, onSuccess } = renderModal();
+    // the destination week is in the past
+    pickWeeks('2027-01-04', '2020-01-06');
+
+    await userEvent.click(copyButton());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No slots were copied. All slots were skipped.');
+    // the destination week was replaced anyway
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(copyButton()).toBeEnabled();
   });
 
   it('lists the reserved destination slots and stays open when the copy is refused', async () => {
