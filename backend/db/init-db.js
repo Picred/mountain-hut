@@ -83,22 +83,25 @@ const SLOT_TABLES = {
   20: [1, 3, 4, 5],
 };
 
-const DISHES = [
-  { id: 1, name: 'Mountain cold cuts', description: 'Local cured meats and lard',     price: 9,  course: 'starter' },
-  { id: 2, name: 'Polenta concia', description: 'Polenta with fontina and butter', price: 11, course: 'first' },
-  { id: 3, name: 'Barley soup', description: 'Barley, vegetables and speck',   price: 10, course: 'first' },
-  { id: 4, name: 'Braised beef with polenta', description: 'Beef braised in red wine',     price: 15, course: 'main' },
-  { id: 5, name: 'Alpine pasture cheeses', description: 'Selection with honey and walnuts', price: 13, course: 'main' },
-  { id: 6, name: 'Apple strudel', description: 'With vanilla custard',           price: 6,  course: 'dessert' },
-  { id: 7, name: 'Hazelnut cake', description: 'Made without wheat flour',       price: 6,  course: 'dessert' },
-];
+// menus are free text with basic Markdown formatting
+const LUNCH_MENU = `**Lunch menu**
+- Starter
+  - Mountain cold cuts
+- First course
+  - *Polenta concia* with fontina and butter
+- Dessert
+  - Apple strudel`;
 
-const MENU = {
-  1: [1, 2, 4, 6],
-  2: [1, 3, 4, 6],
-  3: [2, 5, 7],
-  4: [1, 2, 5, 6],
-};
+const DINNER_MENU = `**Dinner menu**
+- First course
+  - Barley soup with speck
+- Main course
+  - *Braised beef* with polenta
+  - Alpine pasture cheeses
+- Dessert
+  - Hazelnut cake (*gluten free*)`;
+
+const MENUS = { 1: LUNCH_MENU, 2: DINNER_MENU, 3: LUNCH_MENU, 4: DINNER_MENU };
 
 const RESERVATIONS = [
   { id: 1, slotId: 1, userId: 3, createdBy: 3, partySize: 5, createdAt: hoursAgo(72),
@@ -144,6 +147,8 @@ CREATE TABLE slots (
   slot_id  INTEGER PRIMARY KEY AUTOINCREMENT,
   start_at TEXT NOT NULL,
   end_at   TEXT NOT NULL,
+  -- free text with basic Markdown formatting (**bold**, *italic*, lists and sub-items), NULL if not defined
+  menu     TEXT,
   CHECK (end_at > start_at)
 );
 
@@ -162,20 +167,6 @@ CREATE TABLE slot_tables (
   slot_id       INTEGER NOT NULL REFERENCES slots (slot_id)   ON DELETE CASCADE,
   table_id      INTEGER NOT NULL REFERENCES tables (table_id) ON DELETE RESTRICT,
   UNIQUE (slot_id, table_id)
-);
-
-CREATE TABLE dishes (
-  dish_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT NOT NULL,
-  description TEXT,
-  price       REAL CHECK (price IS NULL OR price >= 0),
-  course      TEXT
-);
-
-CREATE TABLE slots_dishes (
-  slot_id INTEGER NOT NULL REFERENCES slots (slot_id)  ON DELETE CASCADE,
-  dish_id INTEGER NOT NULL REFERENCES dishes (dish_id) ON DELETE RESTRICT,
-  PRIMARY KEY (slot_id, dish_id)
 );
 
 CREATE TABLE reservations (
@@ -286,20 +277,12 @@ async function main() {
       await run(db, 'INSERT INTO tables (table_id, table_code, seats) VALUES (?, ?, ?)', [t.id, t.code, t.seats]);
 
     for (const s of SLOTS)
-      await run(db, 'INSERT INTO slots (slot_id, start_at, end_at) VALUES (?, ?, ?)', [s.id, s.start, s.end]);
+      await run(db, 'INSERT INTO slots (slot_id, start_at, end_at, menu) VALUES (?, ?, ?, ?)',
+        [s.id, s.start, s.end, MENUS[s.id] ?? null]);
 
     for (const [slotId, tableIds] of Object.entries(SLOT_TABLES))
       for (const tableId of tableIds)
         await run(db, 'INSERT INTO slot_tables (slot_id, table_id) VALUES (?, ?)', [slotId, tableId]);
-
-    for (const d of DISHES)
-      await run(db,
-        'INSERT INTO dishes (dish_id, name, description, price, course) VALUES (?, ?, ?, ?, ?)',
-        [d.id, d.name, d.description, d.price, d.course]);
-
-    for (const [slotId, dishIds] of Object.entries(MENU))
-      for (const dishId of dishIds)
-        await run(db, 'INSERT INTO slots_dishes (slot_id, dish_id) VALUES (?, ?)', [slotId, dishId]);
 
     for (const r of RESERVATIONS) {
       await run(db,
@@ -332,7 +315,7 @@ async function main() {
 
     console.log(`Database created at ${DB_PATH}`);
     console.log(`  ${USERS.length} users, ${SLOTS.length} slots, ${TABLES.length} tables, ` +
-                `${DISHES.length} dishes, ${RESERVATIONS.length} reservations`);
+                `${Object.keys(MENUS).length} menus, ${RESERVATIONS.length} reservations`);
     console.log(`  All demo users have password "${DEMO_PASSWORD}"`);
   } catch (err) {
     await run(db, 'ROLLBACK').catch(() => {});
