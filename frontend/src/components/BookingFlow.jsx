@@ -697,10 +697,15 @@ export const BookingFlow = ({
                                   : "cursor-pointer border-white/10 bg-[#090f19] text-slate-200 hover:border-sky-300/40 hover:bg-white/5"
                                 }`}
                             >
-                              <span className="text-sm font-medium">
-                                {formatTime(slot.startTime)}
-                                {" – "}
-                                {formatTime(slot.endTime)}
+                              <span className="space-y-1">
+                                <span className="block text-sm font-medium">
+                                  {formatTime(slot.startTime)}
+                                  {" – "}
+                                  {formatTime(slot.endTime)}
+                                </span>
+                                <span className={`block text-xs ${slot.availableSeats === 0 ? "text-red-300" : isBookable ? "text-emerald-300" : "text-slate-400"}`}>
+                                  {slot.availableSeats} {slot.availableSeats === 1 ? "seat" : "seats"} available
+                                </span>
                               </span>
 
                               {!isBookable && (
