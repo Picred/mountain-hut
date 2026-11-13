@@ -97,12 +97,14 @@ describe('slotDAO', () => {
                     slot_id: 1,
                     startTime: '12:00',
                     endTime: '14:00',
+                    availableSeats: 7,
                     secondsUntilStart: 10800,
                 },
                 {
                     slot_id: 2,
                     startTime: '19:00',
                     endTime: '21:00',
+                    availableSeats: 0,
                     secondsUntilStart: 3600,
                 },
             ]);
@@ -119,6 +121,7 @@ describe('slotDAO', () => {
                     slotId: 1,
                     startTime: '12:00',
                     endTime: '14:00',
+                    availableSeats: 7,
                     bookingAllowed: true,
                     restrictionReason: null,
                 },
@@ -126,6 +129,7 @@ describe('slotDAO', () => {
                     slotId: 2,
                     startTime: '19:00',
                     endTime: '21:00',
+                    availableSeats: 0,
                     bookingAllowed: false,
                     restrictionReason: 'Less than 2 hours',
                 },
@@ -138,12 +142,14 @@ describe('slotDAO', () => {
                     slot_id: 1,
                     startTime: '12:00',
                     endTime: '14:00',
+                    availableSeats: 5,
                     secondsUntilStart: 7200,
                 },
                 {
                     slot_id: 2,
                     startTime: '13:00',
                     endTime: '15:00',
+                    availableSeats: 2,
                     secondsUntilStart: 7199,
                 },
             ]);
@@ -532,4 +538,3 @@ describe('slotRoutes', () => {
     });
 
 });
-

@@ -41,12 +41,14 @@ const slots = [
         slotId: 10,
         startTime: '18:00',
         endTime: '19:00',
+        availableSeats: 4,
         bookingAllowed: true,
     },
     {
         slotId: 11,
         startTime: '19:00',
         endTime: '20:00',
+        availableSeats: 4,
         bookingAllowed: true,
     },
 ];

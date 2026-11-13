@@ -16,8 +16,8 @@ const TODAY = new Date(2026, 10, 11, 11, 0);
 const DATE = '2026-11-11';
 const at = (hour) => new Date(2026, 10, 11, hour, 0).toISOString();
 const SLOTS = [
-  { slotId: 1, startTime: at(12), endTime: at(14), bookingAllowed: false, restrictionReason: 'Less than 2 hours' },
-  { slotId: 2, startTime: at(19), endTime: at(21), bookingAllowed: true, restrictionReason: null },
+  { slotId: 1, startTime: at(12), endTime: at(14), availableSeats: 0, bookingAllowed: false, restrictionReason: 'Less than 2 hours' },
+  { slotId: 2, startTime: at(19), endTime: at(21), availableSeats: 10, bookingAllowed: true, restrictionReason: null },
 ];
 
 let server;
@@ -51,7 +51,7 @@ async function openSlotsOfDate(user, reservationResponse, availabilityResponse) 
   );
 
   await user.click(await screen.findByRole('button', { name: DATE }));
-  await screen.findByRole('button', { name: '19:00 – 21:00' });
+  await screen.findByRole('button', { name: /19:00 – 21:00/ });
 }
 
 beforeEach(() => {
@@ -109,11 +109,13 @@ describe('Reservation flow', () => {
     expect(
       screen.getByRole('button', { name: /12:00 – 14:00/ })
     ).toBeDisabled();
+    expect(screen.getByText('0 seats available')).toHaveClass('text-red-300');
+    expect(screen.getByText('10 seats available')).toHaveClass('text-emerald-300');
 
     expect(checkButton).toBeDisabled();
 
     await user.click(
-      screen.getByRole('button', { name: '19:00 – 21:00' })
+      screen.getByRole('button', { name: /19:00 – 21:00/ })
     );
 
     for (let i = 0; i < 5; i++) {
@@ -175,7 +177,7 @@ describe('Reservation flow', () => {
   );
 
   await user.click(
-    screen.getByRole('button', { name: '19:00 – 21:00' })
+    screen.getByRole('button', { name: /19:00 – 21:00/ })
   );
 
   await user.click(
