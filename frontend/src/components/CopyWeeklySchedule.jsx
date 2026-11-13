@@ -91,10 +91,15 @@ export default function CopyWeeklySchedule({ onClose, onSuccess }) {
         setCopyError("");
 
         try {
-            await capacityAPI.copyWeeklySchedule(
+            const result = await capacityAPI.copyWeeklySchedule(
                 sourceWeekStart,
                 destinationWeekStart
             );
+
+            if (Array.isArray(result.created) && result.created.length === 0) {
+                setCopyError("No slots were copied. All slots were skipped.");
+                return;
+            }
 
             await onSuccess();
             onClose();
