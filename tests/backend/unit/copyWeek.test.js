@@ -36,8 +36,18 @@ const { copyWeek } = await vi.importActual('../../../backend/models/dao/capacity
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // source week: Monday 2027-01-04 to Sunday 2027-01-10, slots with different durations
-const LUNCH = { slotId: 1, startAt: '2027-01-04T11:00:00.000Z', endAt: '2027-01-04T13:00:00.000Z' };
-const DINNER = { slotId: 2, startAt: '2027-01-06T18:00:00.000Z', endAt: '2027-01-06T21:30:00.000Z' };
+const LUNCH = {
+  slotId: 1,
+  startAt: '2027-01-04T11:00:00.000Z',
+  endAt: '2027-01-04T13:00:00.000Z',
+  menu: '**Lunch menu**\n- Soup',
+};
+const DINNER = {
+  slotId: 2,
+  startAt: '2027-01-06T18:00:00.000Z',
+  endAt: '2027-01-06T21:30:00.000Z',
+  menu: '**Dinner menu**\n- Pasta',
+};
 
 /**
  * Fake database:
@@ -66,7 +76,7 @@ function mockDatabase({ source = [], target = [], reserved = [], shift } = {}) {
   dbRun.mockImplementation(async (sql, params) => {
     if (sql.includes('INSERT INTO slots (')) {
       const slotId = nextId++;
-      inserted.set(slotId, { start_at: params[0], end_at: params[1] });
+      inserted.set(slotId, { start_at: params[0], end_at: params[1], menu: params[2] });
       return { lastID: slotId, changes: 1 };
     }
     return { changes: 1 };
@@ -159,11 +169,10 @@ describe('copyWeek (DAO)', () => {
     expect(ran('DELETE FROM slots')[0][1]).toEqual([7, 8]);
     expect(dbGet.mock.calls.map(([, params]) => params[2])).toEqual(['+7 days', '+7 days']);
     expect(ran('INSERT INTO slots (').map(([, params]) => params)).toEqual([
-      ['2027-01-11T11:00:00.000Z', '2027-01-11T13:00:00.000Z'],
-      ['2027-01-13T18:00:00.000Z', '2027-01-13T21:30:00.000Z'],
+      ['2027-01-11T11:00:00.000Z', '2027-01-11T13:00:00.000Z', LUNCH.menu],
+      ['2027-01-13T18:00:00.000Z', '2027-01-13T21:30:00.000Z', DINNER.menu],
     ]);
     expect(ran('INSERT INTO slot_tables').map(([, params]) => params)).toEqual([[100, 1], [101, 2]]);
-    expect(ran('INSERT INTO slots_dishes').map(([, params]) => params)).toEqual([[100, 1], [101, 2]]);
 
     // everything runs in one transaction on its own connection
     expect(ran('BEGIN IMMEDIATE')).toHaveLength(1);
@@ -180,8 +189,8 @@ describe('copyWeek (DAO)', () => {
       copyTables: true,
       copyMenu: true,
       created: [
-        { slotId: 100, startAt: '2027-01-11T11:00:00.000Z', endAt: '2027-01-11T13:00:00.000Z', hasTables: false, totalSeats: 0, tables: [] },
-        { slotId: 101, startAt: '2027-01-13T18:00:00.000Z', endAt: '2027-01-13T21:30:00.000Z', hasTables: false, totalSeats: 0, tables: [] },
+        { slotId: 100, startAt: '2027-01-11T11:00:00.000Z', endAt: '2027-01-11T13:00:00.000Z', menu: LUNCH.menu, hasTables: false, totalSeats: 0, tables: [] },
+        { slotId: 101, startAt: '2027-01-13T18:00:00.000Z', endAt: '2027-01-13T21:30:00.000Z', menu: DINNER.menu, hasTables: false, totalSeats: 0, tables: [] },
       ],
       skipped: [],
     });
@@ -204,8 +213,8 @@ describe('copyWeek (DAO)', () => {
     const result = await copyWeek('2027-01-04', '2027-01-11', { copyTables: false, copyMenu: false });
 
     expect(ran('INSERT INTO slots (')).toHaveLength(1);
+    expect(ran('INSERT INTO slots (')[0][1][2]).toBeNull();
     expect(ran('INSERT INTO slot_tables')).toHaveLength(0);
-    expect(ran('INSERT INTO slots_dishes')).toHaveLength(0);
     expect(result).toMatchObject({ copyTables: false, copyMenu: false });
   });
 
