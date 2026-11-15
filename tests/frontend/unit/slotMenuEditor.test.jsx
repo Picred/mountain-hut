@@ -88,6 +88,7 @@ describe('SlotMenuEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Bold' }));
 
     await waitFor(() => expect(editor).toHaveValue('**Pasta**'));
+    await waitFor(() => expect(editor.selectionStart).toBe(2));
 
     editor.setSelectionRange(2, 7);
     await user.click(screen.getByRole('button', { name: 'Italic' }));
@@ -105,6 +106,8 @@ describe('SlotMenuEditor', () => {
     await user.click(screen.getByRole('button', { name: 'Bulleted List' }));
 
     await waitFor(() => expect(editor).toHaveValue('- Soup\n- Bread'));
+    // The component restores the selection in requestAnimationFrame
+    await waitFor(() => expect(editor.selectionStart).toBe(0));
 
     editor.setSelectionRange(7, 14);
     await user.click(screen.getByRole('button', { name: 'Nested List' }));
