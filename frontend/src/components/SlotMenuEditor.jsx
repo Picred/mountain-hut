@@ -10,6 +10,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const textareaRef = useRef(null);
+    const toolbarSelectionRef = useRef(null);
     const [previousMenus, setPreviousMenus] = useState([]);
     const [loadingMenus, setLoadingMenus] = useState(false);
     const [deleting, setDeleting] = useState(false);
@@ -39,12 +40,26 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
         loadPreviousMenus();
     }, [isPastSlot]);
 
+    const captureToolbarSelection = () => {
+        const textarea = textareaRef.current;
+        toolbarSelectionRef.current = textarea
+            ? {
+                start: textarea.selectionStart,
+                end: textarea.selectionEnd,
+            }
+            : null;
+    };
+
     const insertFormatting = (before, after = before) => {
         const textarea = textareaRef.current;
         if (!textarea) return;
 
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
+        const { start, end } =
+            toolbarSelectionRef.current ?? {
+                start: textarea.selectionStart,
+                end: textarea.selectionEnd,
+            };
+        toolbarSelectionRef.current = null;
 
         const selectedText = menu.substring(start, end);
 
@@ -61,21 +76,18 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
         setSuccess("");
         setError("");
 
-        requestAnimationFrame(() => {
-            textarea.focus();
-            textarea.setSelectionRange(
-                start + before.length,
-                end + before.length
-            );
-        });
     };
 
     const insertList = (indent = "") => {
         const textarea = textareaRef.current;
         if (!textarea) return;
 
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
+        const { start, end } =
+            toolbarSelectionRef.current ?? {
+                start: textarea.selectionStart,
+                end: textarea.selectionEnd,
+            };
+        toolbarSelectionRef.current = null;
 
         const lineStart = menu.lastIndexOf("\n", start - 1) + 1;
 
@@ -104,13 +116,6 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
         setError("");
         setSuccess("");
 
-        requestAnimationFrame(() => {
-            textarea.focus();
-            textarea.setSelectionRange(
-                lineStart,
-                lineStart + formattedLines.length
-            );
-        });
     };
 
     const handleSave = async () => {
@@ -289,7 +294,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
                     <div className="mb-3 flex items-center gap-2">
                         <button
                             type="button"
-                            onMouseDown={(event) => event.preventDefault()}
+                            onMouseDown={captureToolbarSelection}
                             onClick={() => insertFormatting("**")}
                             aria-label="Bold"
                             title="Bold"
@@ -299,7 +304,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
                         </button>
                         <button
                             type="button"
-                            onMouseDown={(event) => event.preventDefault()}
+                            onMouseDown={captureToolbarSelection}
                             onClick={() => insertFormatting("*")}
                             aria-label="Italic"
                             title="Italic"
@@ -309,7 +314,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
                         </button>
                         <button
                             type="button"
-                            onMouseDown={(event) => event.preventDefault()}
+                            onMouseDown={captureToolbarSelection}
                             onClick={() => insertList()}
                             aria-label="Bulleted List"
                             title="Bulleted List"
@@ -336,7 +341,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
                         </button>
                         <button
                             type="button"
-                            onMouseDown={(event) => event.preventDefault()}
+                            onMouseDown={captureToolbarSelection}
                             onClick={() => insertList("  ")}
                             aria-label="Nested List"
                             title="Nested List"
