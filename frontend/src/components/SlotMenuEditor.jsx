@@ -289,6 +289,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
                     <div className="mb-3 flex items-center gap-2">
                         <button
                             type="button"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() => insertFormatting("**")}
                             aria-label="Bold"
                             title="Bold"
@@ -298,6 +299,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
                         </button>
                         <button
                             type="button"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() => insertFormatting("*")}
                             aria-label="Italic"
                             title="Italic"
@@ -307,6 +309,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
                         </button>
                         <button
                             type="button"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() => insertList()}
                             aria-label="Bulleted List"
                             title="Bulleted List"
@@ -333,6 +336,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
                         </button>
                         <button
                             type="button"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={() => insertList("  ")}
                             aria-label="Nested List"
                             title="Nested List"
