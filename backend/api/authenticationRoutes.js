@@ -34,9 +34,12 @@ passport.deserializeUser((user, callback) => callback(null, user));
 // 1. POST /api/users --> Registrazione (tutti i campi obbligatori)
 router.post("/api/users", async (req, res, next) => {
     try {
-        const { name, email, phone, password } = req.body;
+        const { name, email, phone, password } = req.body ?? {};
 
-        if (!name || !email || !phone || !password) {
+        // Every field is required: a missing, non-text or blank value (also only spaces) is refused
+        const isFilled = value => typeof value === 'string' && value.trim().length > 0;
+
+        if (![name, email, phone].every(isFilled) || typeof password !== 'string' || password.length === 0) {
             return next(new BadRequestError("All fields (name, email, phone, password) are required."));
         }
 
@@ -44,7 +47,7 @@ router.post("/api/users", async (req, res, next) => {
             return next(new BadRequestError("The password must contain at least 6 characters."));
         }
 
-        const result = await createUser(name, email, phone, password);
+        const result = await createUser(name.trim(), email.trim(), phone.trim(), password);
 
         if (result.isDuplicate) {
             return next(new ConflictError("Email already in use"));
