@@ -26,16 +26,11 @@ Recipient: the hiker who made the reservation (email of the user)
 Subject: Mountain Hut - Booking confirmation #9
 
 Content (plain text and HTML):
-
-booking reference: # followed by `reservation_id`
-
-date and time slot
-
-party size
-
-party requirements (allergies, diets): None if there are none
-
-name of the hiker who made the reservation
+- booking reference: # followed by `reservation_id`
+- date and time slot
+- party size
+- party requirements (allergies, diets): None if there are none
+- name of the hiker who made the reservation
 
 ### Password recovery email format
 
@@ -50,8 +45,6 @@ Content (plain text and HTML):
 
 
 ### APIs
-
-
 
 #### Authentication
 ##### POST `/api/users`
@@ -146,7 +139,7 @@ Retrieves the booking slots for the specified date including just the slots with
   - `slotId`
   - `startTime`
   - `endTime`
-  - `availableSeats` (total seats from assigned tables minus seats allocated to confirmed reservations)
+ - `availableSeats` (total seats from assigned tables minus seats allocated to confirmed reservations)
   - `bookingAllowed`
   - `restrictionReason`
 - **Errors:**
@@ -469,7 +462,7 @@ Retrieves all the reservations of the authenticated user, to choose the one to c
 
 ##### PATCH `/api/reservations/:reservationId`
 
-Modifies an existing reservation owned by the authenticated user. Changing the slot or party size recalculates the table allocation atomically. If the new party does not fit, nothing is changed and the reservation keeps its slot, its party size and its tables. Changes are admitted until 48 hours before the start of the booked slot, otherwise `EDIT_WINDOW_EXPIRED`.
+Modifies an existing reservation owned by the authenticated user. Changing the slot or party size recalculates the table allocation atomically. If the new party does not fit, nothing is changed and the reservation keeps its slot, its party size and its tables. Changes are admitted until 48 hours before the start of the booked slot, otherwise `EDIT_WINDOW_EXPIRED`
 
 - **Authentication:** required.
 - **Path parameter:** `reservationId` (positive integer).
@@ -724,7 +717,6 @@ Sets the new password with the token of the recovery link, invalidates the token
   - `400 Bad Request` — `INVALID_OR_EXPIRED_TOKEN` (unknown, already used or expired token)
 
 
-
 #### MH-08 - Cancel a Booking
 
 ##### DELETE `/api/reservations/:reservationId`
@@ -754,6 +746,74 @@ The reservation is not deleted from the database. Instead, its status is updated
   - `409 Conflict` — `RESERVATION_NOT_CANCELLABLE`
 
 
+#### MH-09 - Repeat a weekly schedule
+ 
+##### POST `/api/slots/copy-week`
+ 
+Copies the slots of one source week (Monday to Sunday) into a single target week (Monday to Sunday), before or after the source week. Optionally the tables and the menu of each slot are copied too. The slots are copied also when they have no tables or no menu.
+- The entire target week (Monday to Sunday) is checked before copying.
+- If **any slot** in the target week has **at least one active reservation** (`status <> 'cancelled'`), the entire operation is aborted (rolled back) and no slots are copied or modified.
+- If **no slots** in the target week have active reservations, **all existing slots** in that target week are deleted (even those that do not overlap with the copied schedule) and replaced by the newly copied slots.
+- Slots from the source week that would fall in the past or have an invalid time range in the target week are skipped.
+ 
+- **Authentication:** required (role `employee`).
+- **Request body:**
+  - `fromDate` — any date (`YYYY-MM-DD`) of the source week.
+  - `toDate` — any date (`YYYY-MM-DD`) of the target week.
+  - `copyTables` — optional boolean, copies the tables of each slot (default `true`).
+  - `copyMenu` — optional boolean, copies the menu of each slot (default `true`).
+```json
+{
+  "fromDate": "2026-11-16",
+  "toDate": "2026-11-23",
+  "copyTables": true,
+  "copyMenu": false
+}
+```
+ 
+- **Response:** `201 Created` if at least one slot was created, `200 OK` if all the slots were skipped.
+  - `fromWeek` and `toWeek` — Monday of the source week and of the target week.
+  - `copyTables`, `copyMenu` — the options used.
+  - `created` — the new slots, with the same format as `POST /api/slots` (the tables are included when copied).
+  - `skipped` — the slots that were not created, with their `startAt`, `endAt` and the `reason`:
+    - `SLOT_IN_THE_PAST` — the target slot starts in the past.
+    - `INVALID_TIME_RANGE` — the target slot has `endAt` not after `startAt`.
+```json
+{
+  "fromWeek": "2026-11-16",
+  "toWeek": "2026-11-23",
+  "copyTables": true,
+  "copyMenu": false,
+  "created": [
+    {
+      "slotId": 21,
+      "startAt": "2026-11-27T11:00:00.000Z",
+      "endAt": "2026-11-27T12:00:00.000Z",
+      "hasTables": true,
+      "totalSeats": 8,
+      "tables": [
+        { "tableId": 1, "code": "T1", "seats": 4 },
+        { "tableId": 2, "code": "T2", "seats": 4 }
+      ]
+    }
+  ],
+  "skipped": [
+    {
+      "startAt": "2026-11-28T11:00:00.000Z",
+      "endAt": "2026-11-28T12:00:00.000Z",
+      "reason": "SLOT_IN_THE_PAST"
+    }
+  ]
+}
+```
+ 
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT` (invalid dates, `copyTables` or `copyMenu` not boolean, dates after the year 9999)
+  - `400 Bad Request` — `NO_SLOTS_TO_COPY` (the source week has no slots)
+  - `400 Bad Request` — `SOURCE_WEEK_IN_TARGET_WEEKS` (the source week and target week are the same week)
+  - `401 Unauthorized` — `UNAUTHORIZED`
+  - `403 Forbidden` — `FORBIDDEN`
+  - `409 Conflict` — `SLOT_HAS_RESERVATIONS: slotId: <id> (<startAt> - <endAt>), ...` (one or more slots in the target week already have active reservations; the entire operation is rolled back)
 
 #### MH-10 - Define Menus
 
