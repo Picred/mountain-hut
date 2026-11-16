@@ -94,10 +94,9 @@ const TARGET = 11;   // target week: the week after
 
 // ---- Direct DB access, to prepare and check the data ----
 
-function insertSlot(startAt, endAt, { tableIds = [], dishIds = [] } = {}) {
-    const slotId = Number(db.prepare('INSERT INTO slots (start_at, end_at) VALUES (?, ?)').run(startAt, endAt).lastInsertRowid);
+function insertSlot(startAt, endAt, { tableIds = [], menu = null } = {}) {
+    const slotId = Number(db.prepare('INSERT INTO slots (start_at, end_at, menu) VALUES (?, ?, ?)').run(startAt, endAt, menu).lastInsertRowid);
     for (const tableId of tableIds) db.prepare('INSERT INTO slot_tables (slot_id, table_id) VALUES (?, ?)').run(slotId, tableId);
-    for (const dishId of dishIds) db.prepare('INSERT INTO slots_dishes (slot_id, dish_id) VALUES (?, ?)').run(slotId, dishId);
     return slotId;
 }
 
@@ -122,16 +121,16 @@ const tablesOf = (slotId) =>
     db.prepare('SELECT table_id FROM slot_tables WHERE slot_id = ? ORDER BY table_id').all(slotId).map((r) => r.table_id);
 
 const menuOf = (slotId) =>
-    db.prepare('SELECT dish_id FROM slots_dishes WHERE slot_id = ? ORDER BY dish_id').all(slotId).map((r) => r.dish_id);
+    db.prepare('SELECT menu FROM slots WHERE slot_id = ?').get(slotId)?.menu ?? null;
 
 const slotExists = (slotId) => db.prepare('SELECT 1 FROM slots WHERE slot_id = ?').get(slotId) !== undefined;
 
 // Source week used by most tests: a lunch with tables and menu, a dinner with tables and no menu,
 // a slot with neither tables nor menu
 function createSourceWeek() {
-    const lunch = { startAt: at(weekDay(SOURCE, 1), 12), endAt: at(weekDay(SOURCE, 1), 13), tableIds: [1, 2], dishIds: [1, 2] };
-    const dinner = { startAt: at(weekDay(SOURCE, 3), 19), endAt: at(weekDay(SOURCE, 3), 21), tableIds: [3], dishIds: [] };
-    const empty = { startAt: at(weekDay(SOURCE, 6), 11), endAt: at(weekDay(SOURCE, 6), 12), tableIds: [], dishIds: [] };
+    const lunch = { startAt: at(weekDay(SOURCE, 1), 12), endAt: at(weekDay(SOURCE, 1), 13), tableIds: [1, 2], menu: '**Lunch menu**\n- Soup' };
+    const dinner = { startAt: at(weekDay(SOURCE, 3), 19), endAt: at(weekDay(SOURCE, 3), 21), tableIds: [3], menu: null };
+    const empty = { startAt: at(weekDay(SOURCE, 6), 11), endAt: at(weekDay(SOURCE, 6), 12), tableIds: [], menu: null };
     for (const s of [lunch, dinner, empty]) s.slotId = insertSlot(s.startAt, s.endAt, s);
     return { lunch, dinner, empty };
 }
@@ -142,7 +141,7 @@ beforeAll(async () => {
     execFileSync('node', ['db/init-db.js'], { cwd: BACKEND_DIR, env: { ...process.env, DB_PATH: dbPath } });
 
     db = new DatabaseSync(dbPath);
-    db.exec('PRAGMA foreign_keys = ON'); // per connection: needed for the CASCADE on slot_tables / slots_dishes
+    db.exec('PRAGMA foreign_keys = ON'); // needed for the CASCADE on slot_tables
     seed = db.prepare(`
         SELECT (SELECT MAX(reservation_id) FROM reservations) AS reservationId,
                (SELECT MAX(slot_id) FROM slots) AS slotId
@@ -204,11 +203,11 @@ describe('POST /api/slots/copy-week', () => {
             expect(slotsOfWeek(TARGET).map((s) => s.slotId)).toEqual(res.body.created.map((s) => s.slotId));
             expect(tablesOf(newLunch.slotId)).toEqual([1, 2]);
             expect(tablesOf(newDinner.slotId)).toEqual([3]);
-            expect(menuOf(newLunch.slotId)).toEqual([]);
+            expect(menuOf(newLunch.slotId)).toBeNull();
 
             // The source week is unchanged
             expect(slotsOfWeek(SOURCE).map((s) => s.slotId)).toEqual([lunch.slotId, dinner.slotId, empty.slotId]);
-            expect(menuOf(lunch.slotId)).toEqual([1, 2]);
+            expect(menuOf(lunch.slotId)).toBe('**Lunch menu**\n- Soup');
         });
 
         it('copies tables and menu by default when copyTables and copyMenu are omitted', async () => {
@@ -225,9 +224,9 @@ describe('POST /api/slots/copy-week', () => {
 
             const [newLunch, newDinner, newEmpty] = res.body.created;
             expect(tablesOf(newLunch.slotId)).toEqual([1, 2]);
-            expect(menuOf(newLunch.slotId)).toEqual([1, 2]);
-            expect(menuOf(newDinner.slotId)).toEqual([]);
-            expect(menuOf(newEmpty.slotId)).toEqual([]);
+            expect(menuOf(newLunch.slotId)).toBe('**Lunch menu**\n- Soup');
+            expect(menuOf(newDinner.slotId)).toBeNull();
+            expect(menuOf(newEmpty.slotId)).toBeNull();
         });
 
         it('copies only the slots when copyTables and copyMenu are false', async () => {
@@ -246,7 +245,7 @@ describe('POST /api/slots/copy-week', () => {
             for (const slot of res.body.created) {
                 expect(slot).toMatchObject({ hasTables: false, totalSeats: 0, tables: [] });
                 expect(tablesOf(slot.slotId)).toEqual([]);
-                expect(menuOf(slot.slotId)).toEqual([]);
+                expect(menuOf(slot.slotId)).toBeNull();
             }
         });
 
@@ -286,7 +285,7 @@ describe('POST /api/slots/copy-week', () => {
             createSourceWeek();
 
             // Old target slots: one not overlapping any copied slot, one with only a cancelled reservation
-            const oldMonday = insertSlot(at(weekDay(TARGET, 0), 8), at(weekDay(TARGET, 0), 9), { tableIds: [1], dishIds: [3] });
+            const oldMonday = insertSlot(at(weekDay(TARGET, 0), 8), at(weekDay(TARGET, 0), 9), { tableIds: [1], menu: '**Old menu**' });
             const oldFriday = insertSlot(at(weekDay(TARGET, 4), 15), at(weekDay(TARGET, 4), 16), { tableIds: [2] });
             const cancelled = insertReservation(oldFriday, 'cancelled');
 
@@ -303,7 +302,7 @@ describe('POST /api/slots/copy-week', () => {
             expect(slotExists(oldFriday)).toBe(false);
             // Tables, menu and the cancelled reservation of the old slots are gone too
             expect(tablesOf(oldMonday)).toEqual([]);
-            expect(menuOf(oldMonday)).toEqual([]);
+            expect(menuOf(oldMonday)).toBeNull();
             expect(db.prepare('SELECT 1 FROM reservations WHERE reservation_id = ?').get(cancelled)).toBeUndefined();
         });
     });
@@ -412,7 +411,7 @@ describe('POST /api/slots/copy-week', () => {
                 createSourceWeek();
 
                 const free = insertSlot(at(weekDay(TARGET, 0), 8), at(weekDay(TARGET, 0), 9), { tableIds: [1] });
-                const reserved = insertSlot(at(weekDay(TARGET, 5), 12), at(weekDay(TARGET, 5), 13), { tableIds: [2], dishIds: [1] });
+                const reserved = insertSlot(at(weekDay(TARGET, 5), 12), at(weekDay(TARGET, 5), 13), { tableIds: [2], menu: '**Reserved menu**' });
                 insertReservation(reserved, status);
 
                 const res = await copyWeek(body(), cookie);
@@ -426,7 +425,7 @@ describe('POST /api/slots/copy-week', () => {
                 expect(slotsOfWeek(TARGET).map((s) => s.slotId)).toEqual([free, reserved]);
                 expect(tablesOf(free)).toEqual([1]);
                 expect(tablesOf(reserved)).toEqual([2]);
-                expect(menuOf(reserved)).toEqual([1]);
+                expect(menuOf(reserved)).toBe('**Reserved menu**');
             },
         );
     });

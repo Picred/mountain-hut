@@ -177,6 +177,71 @@ async function copyWeeklySchedule(fromDate, toDate) {
     return await response.json();
 }
 
-const capacityAPI = { getSlots, createSlot, getTables, addTablesToSlot, copyTablesToSlot, createTable, copyWeeklySchedule };
+async function getPreviousMenus() {
+    const response = await fetch(`${SERVER_URL}/api/slots/menus`, {
+        method: "GET",
+        credentials: "include",
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        throw new Error(
+            errorData.message ||
+            errorData.error ||
+            "Unable to retrieve previous menus"
+        );
+    }
+
+    return await response.json();
+}
+
+async function saveSlotMenu(slotId, menu) {
+    const response = await fetch(
+        `${SERVER_URL}/api/slots/${slotId}/menu`,
+        {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({ menu }),
+        }
+    );
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        throw new Error(
+            errorData.message ||
+            errorData.error ||
+            "Unable to save slot menu"
+        );
+    }
+
+    return await response.json();
+}
+
+async function deleteSlotMenu(slotId) {
+    const response = await fetch(
+        `${SERVER_URL}/api/slots/${slotId}/menu`,
+        {
+            method: "DELETE",
+            credentials: "include",
+        }
+    );
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        throw new Error(
+            errorData.message ||
+            errorData.error ||
+            "Unable to delete slot menu"
+        );
+    }
+}
+
+const capacityAPI = { getSlots, createSlot, getTables, addTablesToSlot, copyTablesToSlot, createTable, copyWeeklySchedule, getPreviousMenus, saveSlotMenu, deleteSlotMenu };
 
 export default capacityAPI;

@@ -1,4 +1,6 @@
-import { dbAll, dbGet } from '../../utils/dbHelpers.js';
+import { dbAll, dbGet, dbRun } from '../../utils/dbHelpers.js';
+import BadRequestError from '../errors/BadRequestError.js';
+import NotFoundError from '../errors/NotFoundError.js';
 
 /**
  * Returns the seconds until the slot starts, or null if the slot does not exist.
@@ -74,3 +76,35 @@ export const getSlotsByDate = async (date, forEmployee = false) => {
 
     return slots;
 };
+
+/**
+ * Sets (menu = text) or removes (menu = null) the menu of a slot.
+ * The menu of a slot that has already started cannot be changed.
+ */
+export const setSlotMenu = async (slotId, menu) => {
+    const result = await dbRun(`
+        UPDATE slots
+        SET menu = ?
+        WHERE slot_id = ? AND start_at > ?
+    `, [menu, slotId, new Date().toISOString()]);
+
+    if (result.changes === 0) {
+        const slot = await dbGet('SELECT slot_id FROM slots WHERE slot_id = ?', [slotId]);
+        throw slot ? new BadRequestError('SLOT_IN_THE_PAST') : new NotFoundError('SLOT_NOT_FOUND');
+    }
+
+    return { slotId, menu };
+};
+
+/**
+ * Retrieves the menus already defined (distinct texts), from the most recently used,
+ * so that the employee can reuse and change them.
+ */
+export const getPreviousMenus = (limit = 50) => dbAll(`
+    SELECT menu, MAX(start_at) AS lastUsedAt
+    FROM slots
+    WHERE menu IS NOT NULL
+    GROUP BY menu
+    ORDER BY lastUsedAt DESC
+    LIMIT ?
+`, [limit]);

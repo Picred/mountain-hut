@@ -53,11 +53,10 @@ async function addTables(employee, slotId, tableIds) {
   return response.body;
 }
 
-function addMenu(slotId, dishIds) {
+function addMenu(slotId, menu) {
   const db = new DatabaseSync(process.env.DB_PATH);
   try {
-    const insert = db.prepare('INSERT INTO slots_dishes (slot_id, dish_id) VALUES (?, ?)');
-    for (const dishId of dishIds) insert.run(slotId, dishId);
+    db.prepare('UPDATE slots SET menu = ? WHERE slot_id = ?').run(menu, slotId);
   } finally {
     db.close();
   }
@@ -66,9 +65,8 @@ function addMenu(slotId, dishIds) {
 function getMenu(slotId) {
   const db = new DatabaseSync(process.env.DB_PATH);
   try {
-    return db.prepare('SELECT dish_id FROM slots_dishes WHERE slot_id = ? ORDER BY dish_id')
-      .all(slotId)
-      .map(({ dish_id }) => dish_id);
+    return db.prepare('SELECT menu FROM slots WHERE slot_id = ?')
+      .get(slotId)?.menu ?? null;
   } finally {
     db.close();
   }
@@ -148,12 +146,12 @@ describe('POST /api/slots/copy-week e2e', () => {
     const sourceDinner = await createSlot(employee, sourceThursday, 18, 2);
     await addTables(employee, sourceLunch.slotId, [1, 2]);
     await addTables(employee, sourceDinner.slotId, [3, 5]);
-    addMenu(sourceLunch.slotId, [1, 2]);
-    addMenu(sourceDinner.slotId, [3, 6]);
+    addMenu(sourceLunch.slotId, '**Lunch menu**\n- Soup');
+    addMenu(sourceDinner.slotId, '**Dinner menu**\n- Pasta');
 
     const oldTarget = await createSlot(employee, oldTargetWednesday, 14);
     await addTables(employee, oldTarget.slotId, [4]);
-    addMenu(oldTarget.slotId, [5]);
+    addMenu(oldTarget.slotId, '**Old menu**');
     const oldReservation = await hiker.post('/api/reservations')
       .send({ slotId: oldTarget.slotId, partySize: 1 });
     expect(oldReservation.status).toBe(201);
@@ -194,8 +192,10 @@ describe('POST /api/slots/copy-week e2e', () => {
       expect(matching.tables.map(({ tableId }) => tableId)).toEqual(
         slot.slotId === sourceLunch.slotId ? [1, 2] : [3, 5]
       );
-      expect(getMenu(matching.slotId)).toEqual(
-        slot.slotId === sourceLunch.slotId ? [1, 2] : [3, 6]
+      expect(getMenu(matching.slotId)).toBe(
+        slot.slotId === sourceLunch.slotId
+          ? '**Lunch menu**\n- Soup'
+          : '**Dinner menu**\n- Pasta'
       );
     }
 
@@ -220,7 +220,7 @@ describe('POST /api/slots/copy-week e2e', () => {
     const targetDate = weekDate(29, 2);
     const source = await createSlot(employee, sourceDate, 12);
     await addTables(employee, source.slotId, [1, 3]);
-    addMenu(source.slotId, [2, 4]);
+    addMenu(source.slotId, '**Source menu**\n- Bread');
 
     const response = await employee.post('/api/slots/copy-week').send({
       fromDate: localDate(sourceDate),
@@ -234,7 +234,7 @@ describe('POST /api/slots/copy-week e2e', () => {
     expect(response.body.copyMenu).toBe(false);
     expect(response.body.created).toHaveLength(1);
     expect(response.body.created[0].tables).toEqual([]);
-    expect(getMenu(response.body.created[0].slotId)).toEqual([]);
+    expect(getMenu(response.body.created[0].slotId)).toBeNull();
   });
 
   it('does not replace any target slots when one has an active reservation', async () => {
