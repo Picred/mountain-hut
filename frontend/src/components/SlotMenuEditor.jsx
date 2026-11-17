@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import MenuMarkdown from "./MenuMarkdown";
 import capacityAPI from "../api/capacity_api";
 
 const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
@@ -256,28 +255,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
             {showPreview || isPastSlot ? (
                 <div className="min-h-40 rounded-xl border border-white/10 bg-[#080e18] p-4 text-sm text-slate-200">
                     {menu.trim() ? (
-                        <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                                ul: ({ children }) => (
-                                    <ul className="my-2 list-disc pl-6">
-                                        {children}
-                                    </ul>
-                                ),
-                                ol: ({ children }) => (
-                                    <ol className="my-2 list-decimal pl-6">
-                                        {children}
-                                    </ol>
-                                ),
-                                li: ({ children }) => (
-                                    <li className="my-1">
-                                        {children}
-                                    </li>
-                                ),
-                            }}
-                        >
-                            {menu}
-                        </ReactMarkdown>
+                        <MenuMarkdown menu={menu} />
                     ) : (
                         <p className="text-slate-400">
                             No menu defined for this slot.

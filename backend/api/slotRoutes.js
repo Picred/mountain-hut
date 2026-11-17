@@ -9,9 +9,12 @@ import {
     setSlotMenu,
     getPreviousMenus
 } from '../models/dao/slotDAO.js';
+import { getMealBySlotId, getMealsByDate } from '../models/dao/mealDAO.js';
+
 import { checkAvailability } from '../models/dao/reservationDAO.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import NotFoundError from '../models/errors/NotFoundError.js';
+import { isString, isValidDate } from '../utils/validator.js';
 
 dayjs.extend(customParseFormat);
 
@@ -46,6 +49,25 @@ router.get('/', async (req, res) => {
 
     return res.status(200).json(slots);
 });
+
+
+/**
+ * GET /api/slots/meals?date=YYYY-MM-DD
+ *
+ * Public endpoint: returns meal times and menus for bookable slots
+ * (filtered by date if provided, otherwise all upcoming slots from today).
+ */
+router.get('/meals', async (req, res) => {
+    const { date } = req.query;
+
+    if (!isValidDate(date) || !isString(date) )
+        throw new BadRequestError('INVALID_DATE');
+
+    const meals = await getMealsByDate(date);
+
+    return res.status(200).json(meals);
+});
+
 
 /**
  * GET /api/slots/:slotId/availability?partySize=N
@@ -100,6 +122,30 @@ router.get('/menus', employeeOnly, async (req, res) => {
 
     return res.status(200).json(menus);
 });
+
+
+/**
+ * GET /api/slots/:slotId/menu
+ *
+ * Public endpoint: returns meal times and menu for a specific slot.
+ */
+router.get('/:slotId/menu', async (req, res) => {
+    const slotId = parseId(req.params.slotId);
+
+    if (!isId(slotId)) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    const meal = await getMealBySlotId(slotId);
+
+    if (!meal) {
+        throw new NotFoundError('SLOT_NOT_FOUND');
+    }
+
+    return res.status(200).json(meal);
+});
+
+
 
 /**
  * PUT /api/slots/:slotId/menu
