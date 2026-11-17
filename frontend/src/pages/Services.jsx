@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { InfoPage } from "../components/InfoPage";
 
 const SERVICES = [
@@ -5,6 +6,7 @@ const SERVICES = [
     name: "Meals",
     description:
       "The hut serves meals in a dining room with shared tables. Tables can be booked online, and dietary requirements and allergies can be added to the reservation. The dining room has shared tables of different sizes, so a party may sit with other hikers.",
+    link: { to: "/meals", label: "See meal times and menus" },
   },
   {
     name: "Safety service for hikers setting off",
@@ -22,7 +24,7 @@ export const ServicesPage = () => (
 
 
     <div className="mt-8 space-y-4">
-      {SERVICES.map(({ name, status, description }) => (
+      {SERVICES.map(({ name, description, link }) => (
         <article
           key={name}
           className="rounded-xl border border-white/10 bg-[#090f19] p-5"
@@ -34,6 +36,15 @@ export const ServicesPage = () => (
           <p className="mt-3 text-sm leading-relaxed text-slate-300">
             {description}
           </p>
+
+          {link && (
+            <Link
+              to={link.to}
+              className="mt-3 inline-block text-sm font-semibold text-sky-300 transition-colors hover:text-sky-200"
+            >
+              {link.label} →
+            </Link>
+          )}
         </article>
       ))}
     </div>
