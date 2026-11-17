@@ -63,18 +63,20 @@ describe('HikeRegistrationPage component', () => {
         await user.click(addPassageBtn);
 
         expect(screen.getByPlaceholderText('Passage 1')).toBeInTheDocument();
-        // Since there is only 1 passage, remove button is not displayed
-        expect(screen.queryByRole('button', { name: 'Remove passage 1' })).not.toBeInTheDocument();
 
+        await user.type(screen.getByPlaceholderText('Passage 1'), 'Col A');
         await user.click(addPassageBtn);
-        expect(screen.getByPlaceholderText('Passage 2')).toBeInTheDocument();
+        await user.type(screen.getByPlaceholderText('Passage 2'), 'Col B');
 
-        // Now remove buttons appear
-        const removeFirstBtn = screen.getByRole('button', { name: 'Remove passage 1' });
-        await user.click(removeFirstBtn);
+        await user.click(screen.getByRole('button', { name: 'Remove passage 1' }));
 
         expect(screen.queryByPlaceholderText('Passage 2')).not.toBeInTheDocument();
-        expect(screen.getByPlaceholderText('Passage 1')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Passage 1')).toHaveValue('Col B');
+
+        // passages are optional: the last one can be removed too
+        await user.click(screen.getByRole('button', { name: 'Remove passage 1' }));
+
+        expect(screen.queryByPlaceholderText('Passage 1')).not.toBeInTheDocument();
     });
 
     describe('client-side validations on form submission', () => {
