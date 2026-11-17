@@ -340,16 +340,14 @@ export const HikeRegistrationPage = () => {
                                     className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#172333] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-sky-300/60 focus:ring-1 focus:ring-sky-300/30"
                                     placeholder={`Passage ${index + 1}`}
                                 />
-                                {formData.passages.length > 1 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removePassage(index)}
-                                        className="rounded-xl border border-white/10 px-3 text-slate-400 transition-colors hover:border-red-400/40 hover:text-red-300"
-                                        aria-label={`Remove passage ${index + 1}`}
-                                    >
-                                        ×
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => removePassage(index)}
+                                    className="rounded-xl border border-white/10 px-3 text-slate-400 transition-colors hover:border-red-400/40 hover:text-red-300"
+                                    aria-label={`Remove passage ${index + 1}`}
+                                >
+                                    ×
+                                </button>
                             </div>
                         ))}
                         <button
