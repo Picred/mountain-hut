@@ -9,6 +9,7 @@ import slotRoutes from './api/slotRoutes.js';
 import reservationRoutes from './api/reservationRoutes.js';
 import hikerReservationsRoute from './api/hikerReservationsRoute.js';
 import hikerRoutes from './api/hikerRoutes.js';
+import hikeRoutes from './api/hikeRoutes.js';
 
 import { errorHandler } from './utils/errorHandler.js';
 import capacityRoutes from './api/capacityRoutes.js';
@@ -49,6 +50,7 @@ app.use('/api/reservations', reservationRoutes);
 app.use('/api', hikerReservationsRoute);
 app.use('/api/hikers', hikerRoutes);
 app.use(capacityRoutes);
+app.use('/api/hikes', hikeRoutes);
 
 
 // Centralized error handler (must be registered after the routes).

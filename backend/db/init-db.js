@@ -16,18 +16,21 @@ TODAY.setUTCHours(0, 0, 0, 0);
 const at = (dayOffset, hour, minute = 0) =>
   new Date(TODAY.getTime() + dayOffset * DAY_MS + (hour * 60 + minute) * 60000).toISOString();
 const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
+const hoursFromNow = h => hoursAgo(-h);
 
 const DEMO_PASSWORD = 'password';
 
 const USERS = [
   { id: 1, name: 'Julia White', email: 'warden@mountainhut.test', phone: '0165123456', role: 'warden' },
   { id: 2, name: 'Carl Smith', email: 'employee@mountainhut.test', phone: '3331234567', role: 'employee' },
-  { id: 3, name: 'Anna Winden',     email: 'anna@mountainhut.test',     phone: '+393401234567', role: 'hiker' },
-  { id: 4, name: 'Bruno Ryn',    email: 'bruno@mountainhut.test',    phone: '0112345678',    role: 'hiker' },
-  { id: 5, name: 'Edward Coles',    email: 'edward@mountainhut.test',    phone: null,            role: 'hiker' },
+  { id: 3, name: 'Anna Winden',     email: 'anna@mountainhut.test',     phone: '+393401234567', role: 'hiker',
+    notes: 'Registered mountain guide', emergencyContact: 'Peter Winden (brother), +39 340 7654321' },
+  { id: 4, name: 'Bruno Ryn',    email: 'bruno@mountainhut.test',    phone: '0112345678',    role: 'hiker',
+    emergencyContact: 'Clara Ryn (wife), +39 011 7654321' },
+  { id: 5, name: 'Edward Coles',    email: 'edward@mountainhut.test',    phone: '+393451234567', role: 'hiker' },
   { id: 6, name: 'Niccolo Cristoforetti', email: 's359369@studenti.polito.it', phone: '+393401234567', role: 'hiker' },
   { id: 7, name: 'Letizia Pontarolo', email: 's352496@studenti.polito.it', phone: '0112345678', role: 'hiker' },
-  { id: 8, name: 'Caterina Maccarini', email: 's336160@studenti.polito.it', phone: null, role: 'hiker' },
+  { id: 8, name: 'Caterina Maccarini', email: 's336160@studenti.polito.it', phone: '+393331234567', role: 'hiker' },
 ];
 
 const TABLES = [
@@ -125,6 +128,27 @@ const RESERVATIONS = [
     seats: [[5, 2], [4, 1]], requirements: [[1, 'celiac', 1]] }
 ];
 
+// status: scheduled -> returned (safe at home) or cancelled
+const HIKES = [
+  { id: 1, userId: 3, destination: 'Lake Chiaretto', route: 'Via the Chiaretto lake, return by the same path',
+    departure: at(1, 6), arrival: at(1, 15), partySize: 3, status: 'scheduled',
+    passages: ['Viso Mozzo', 'Chiaretto saddle'] },
+  { id: 2, userId: 4, destination: 'Mount Viso', route: 'Normal route from the hut, descent by the south ridge',
+    departure: at(2, 5), arrival: at(2, 17), partySize: 2, status: 'scheduled',
+    passages: [] },
+  // hike completed
+  { id: 3, userId: 3, destination: 'Pian del Re', route: 'Forest path along the river',
+    departure: hoursAgo(80), arrival: hoursAgo(74), partySize: 4, status: 'returned',
+    passages: ['Bridge over the stream'] },
+  // overdue: scheduled, but the expected arrival has passed
+  { id: 4, userId: 5, destination: 'Viso Mozzo', route: 'Ridge route, return through the Vallanta valley',
+    departure: hoursAgo(9), arrival: hoursAgo(2), partySize: 1, status: 'scheduled',
+    passages: ['Vallanta pass'] },
+  { id: 5, userId: 8, destination: 'Lake Fiorenza', route: 'Path 3, same way back',
+    departure: at(3, 8), arrival: at(3, 14), partySize: 2, status: 'cancelled',
+    passages: [] },
+];
+
 
 const SCHEMA = `
 PRAGMA foreign_keys = ON;
@@ -133,14 +157,18 @@ CREATE TABLE users (
   user_id       INTEGER PRIMARY KEY AUTOINCREMENT,
   name          TEXT    NOT NULL,
   email         TEXT    NOT NULL UNIQUE,
-  phone         TEXT,
+  phone         TEXT    NOT NULL,
   password_hash TEXT    NOT NULL,
   salt          TEXT    NOT NULL,
   role          TEXT    NOT NULL DEFAULT 'hiker'
                 CHECK (role IN ('hiker', 'employee', 'warden')),
   password_to_change INTEGER NOT NULL DEFAULT 0 CHECK (password_to_change IN (0, 1)),
   reset_token_hash       TEXT,
-  reset_token_expires_at TEXT
+  reset_token_expires_at TEXT,
+  -- optional information of the hikers (e.g. "registered mountain guide")
+  notes             TEXT,
+  -- name and phone of a person to call in case of need
+  emergency_contact TEXT
 );
 
 CREATE TABLE slots (
@@ -204,6 +232,34 @@ CREATE TABLE reservation_requirements (
 );
 
 CREATE INDEX idx_requirements_reservation ON reservation_requirements (reservation_id);
+
+CREATE TABLE hikes (
+  hike_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id             INTEGER NOT NULL REFERENCES users (user_id) ON DELETE RESTRICT,
+  destination         TEXT    NOT NULL,
+  -- text description of the route, e.g. "via the Chiaretto lake"
+  route               TEXT    NOT NULL,
+  scheduled_departure TEXT    NOT NULL,
+  expected_arrival    TEXT    NOT NULL,
+  party_size          INTEGER NOT NULL CHECK (party_size > 0),
+  -- returned = the hikers are back home safe
+  status              TEXT    NOT NULL DEFAULT 'scheduled'
+                      CHECK (status IN ('scheduled', 'returned', 'cancelled')),
+  created_at          TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  CHECK (expected_arrival > scheduled_departure)
+);
+
+CREATE INDEX idx_hikes_user           ON hikes (user_id);
+-- to find the hikes that should be over (status scheduled and expected_arrival passed)
+CREATE INDEX idx_hikes_status_arrival ON hikes (status, expected_arrival);
+
+-- intermediate passage points of a hike, in the order of the route
+CREATE TABLE hike_passages (
+  hike_id  INTEGER NOT NULL REFERENCES hikes (hike_id) ON DELETE CASCADE,
+  position INTEGER NOT NULL CHECK (position > 0),
+  name     TEXT    NOT NULL,
+  PRIMARY KEY (hike_id, position)
+);
 `;
 
 
@@ -269,8 +325,10 @@ async function main() {
     for (const u of USERS) {
       const salt = crypto.randomBytes(16).toString('hex');
       await run(db,
-        'INSERT INTO users (user_id, name, email, phone, password_hash, salt, role) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [u.id, u.name, u.email, u.phone, hashPassword(DEMO_PASSWORD, salt), salt, u.role]);
+        `INSERT INTO users (user_id, name, email, phone, password_hash, salt, role, notes, emergency_contact)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [u.id, u.name, u.email, u.phone, hashPassword(DEMO_PASSWORD, salt), salt, u.role,
+         u.notes ?? null, u.emergencyContact ?? null]);
     }
 
     for (const t of TABLES)
@@ -310,12 +368,23 @@ async function main() {
           [r.id, people, description, isAllergy]);
     }
 
+    for (const h of HIKES) {
+      await run(db,
+        `INSERT INTO hikes
+           (hike_id, user_id, destination, route, scheduled_departure, expected_arrival, party_size, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [h.id, h.userId, h.destination, h.route, h.departure, h.arrival, h.partySize, h.status]);
+
+      for (const [i, name] of h.passages.entries())
+        await run(db, 'INSERT INTO hike_passages (hike_id, position, name) VALUES (?, ?, ?)', [h.id, i + 1, name]);
+    }
+
     await verify(db);
     await run(db, 'COMMIT');
 
     console.log(`Database created at ${DB_PATH}`);
     console.log(`  ${USERS.length} users, ${SLOTS.length} slots, ${TABLES.length} tables, ` +
-                `${Object.keys(MENUS).length} menus, ${RESERVATIONS.length} reservations`);
+                `${Object.keys(MENUS).length} menus, ${RESERVATIONS.length} reservations, ${HIKES.length} hikes`);
     console.log(`  All demo users have password "${DEMO_PASSWORD}"`);
   } catch (err) {
     await run(db, 'ROLLBACK').catch(() => {});

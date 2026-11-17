@@ -43,6 +43,17 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
               </button>
             )}
 
+            {user?.role === "hiker" && !user?.passwordToChange && (
+              <button
+                className="btn btn-sm bg-sky-300 hover:bg-sky-400 border-sky-300 hover:border-sky-400 text-slate-950 font-semibold shadow-md hover:shadow-lg transition-all gap-1.5"
+                onClick={() => navigate("/hike-registration")}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m8 3 4 8 5-5 5 15H2L8 3z" /><path d="M4.14 15.08c2.62-1.57 5.24-1.43 7.86.42 2.74 1.94 5.49 2 8.23.19" /></svg>
+                <span className="hidden sm:inline">Register a hike</span>
+                <span className="sm:hidden">Hike</span>
+              </button>
+            )}
+
             {/* Pulsante Login secondario */}
             {!loggedIn && (
               <button

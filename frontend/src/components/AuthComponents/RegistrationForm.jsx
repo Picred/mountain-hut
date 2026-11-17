@@ -16,12 +16,18 @@ export default function RegisterForm({ onRegister }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (!formData.phone.trim()) {
+      setError("Phone number is required.");
+      return;
+    }
+
     setLoading(true);
     try {
       await onRegister(
-        formData.name,
-        formData.email,
-        formData.phone,
+        formData.name.trim(),
+        formData.email.trim(),
+        formData.phone.trim(),
         formData.password
       );
     } catch (err) {
