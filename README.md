@@ -886,3 +886,126 @@ Removes the menu of a slot that has not started yet.
   - `401 Unauthorized` — `UNAUTHORIZED`
   - `403 Forbidden` — `FORBIDDEN`
   - `404 Not Found` — `SLOT_NOT_FOUND`
+
+#### MH-20 - Register a Planned Hike
+
+##### POST `/api/hikes`
+
+Registers a planned hike for the authenticated hiker.
+
+- **Authentication:** required (role `hiker`).
+
+- **Request body:** `scheduledDeparture` and `expectedArrival` must be valid ISO 8601 date-times with an explicit timezone. They are normalized to UTC. `partySize` must be a positive integer. `passages` is an optional array of non-empty strings, stored in the specified order (default `[]`). The scheduled departure must be in the future, and the expected arrival must be after departure.
+
+```json
+{
+  "destination": "Monte Viso",
+  "route": "Pian del Re - Colle delle Traversette - Monte Viso",
+  "scheduledDeparture": "2026-11-26T08:00:00Z",
+  "expectedArrival": "2026-11-26T17:00:00Z",
+  "partySize": 3,
+  "passages": [
+    "Pian del Re",
+    "Colle delle Traversette",
+    "Rifugio Quintino Sella"
+  ]
+}
+```
+
+- **Response:** `201 Created` - the newly registered hike, with its generated ID, the authenticated hiker's ID, normalized dates, and initial status `scheduled`.
+
+```json
+{
+  "hikeId": 7,
+  "userId": 3,
+  "destination": "Monte Viso",
+  "route": "Pian del Re - Colle delle Traversette - Monte Viso",
+  "scheduledDeparture": "2026-11-26T08:00:00.000Z",
+  "expectedArrival": "2026-11-26T17:00:00.000Z",
+  "partySize": 3,
+  "passages": [
+    "Pian del Re",
+    "Colle delle Traversette",
+    "Rifugio Quintino Sella"
+  ],
+  "status": "scheduled"
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` - `INVALID_INPUT` (missing or invalid fields, non-positive party size, or invalid passages).
+  - `400 Bad Request` - `INVALID_DATE` (invalid date-time format or value).
+  - `400 Bad Request` - `INVALID_TIME_RANGE` (expected arrival is not after scheduled departure).
+  - `400 Bad Request` - `DEPARTURE_IN_THE_PAST` (scheduled departure is in the past).
+  - `401 Unauthorized` - `UNAUTHORIZED`.
+  - `403 Forbidden` - `FORBIDDEN` (the authenticated user is not a hiker).
+  - `409 Conflict` - `HIKE_TIME_CONFLICT` (the hiker already has a `scheduled` hike overlapping the requested time interval).
+
+#### MH-11 - View Meal Times and Menu
+
+##### GET `/api/slots/meals?date=YYYY-MM-DD`
+
+Retrieves the meal times and menus for all bookable slots (with at least one assigned table) on the specified date, ordered by start time.
+
+- **Authentication:** not required (public).
+
+- **Query parameter:** `date` (required, format: `YYYY-MM-DD`, compared in the mountain hut's local time).
+
+- **Response:** `200 OK` — an array of meal slots containing:
+  - `slotId`
+  - `date` (`YYYY-MM-DD`, mountain hut's local time)
+  - `startAt` (ISO 8601, UTC)
+  - `endAt` (ISO 8601, UTC)
+  - `startTime` (`HH:MM`, mountain hut's local time)
+  - `endTime` (`HH:MM`, mountain hut's local time)
+  - `menu` (free text with basic Markdown formatting, `null` if not defined)
+
+```json
+[
+  {
+    "slotId": 1,
+    "date": "2026-11-18",
+    "startAt": "2026-11-18T11:00:00.000Z",
+    "endAt": "2026-11-18T12:00:00.000Z",
+    "startTime": "12:00",
+    "endTime": "13:00",
+    "menu": "**Lunch menu**\n- Starter\n  - Mountain cold cuts\n- First course\n  - *Polenta concia* with fontina and butter\n- Dessert\n  - Apple strudel"
+  }
+]
+```
+
+* **Errors:**
+  - `400 Bad Request` - `INVALID_DATE` (missing or invalid date).
+
+##### GET `/api/slots/:slotId/menu`
+
+Retrieves the meal times and menu for a specific slot.
+
+- **Authentication:** not required (public).
+
+- **Path parameter:** `slotId` (positive integer).
+
+- **Response:** `200 OK` — an object containing:
+  - `slotId`
+  - `date` (`YYYY-MM-DD`, mountain hut's local time)
+  - `startAt` (ISO 8601, UTC)
+  - `endAt` (ISO 8601, UTC)
+  - `startTime` (`HH:MM`, mountain hut's local time)
+  - `endTime` (`HH:MM`, mountain hut's local time)
+  - `menu` (free text with basic Markdown formatting, `null` if not defined)
+
+```json
+{
+  "slotId": 1,
+  "date": "2026-11-18",
+  "startAt": "2026-11-18T11:00:00.000Z",
+  "endAt": "2026-11-18T12:00:00.000Z",
+  "startTime": "12:00",
+  "endTime": "13:00",
+  "menu": "**Lunch menu**\n- Starter\n  - Mountain cold cuts\n- First course\n  - *Polenta concia* with fontina and butter\n- Dessert\n  - Apple strudel"
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` — `INVALID_INPUT` (invalid `slotId`).
+  - `404 Not Found` — `SLOT_NOT_FOUND`
