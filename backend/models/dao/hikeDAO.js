@@ -101,6 +101,8 @@ export const createHike = async (userId, hike) => {
 };
 
 export const getActiveHikes = async () => {
+    const nowIso = new Date().toISOString();
+
     const hikeRows = await dbAll(`
         SELECT
             h.hike_id AS hikeId,
@@ -120,8 +122,9 @@ export const getActiveHikes = async () => {
         FROM hikes h
         JOIN users u ON u.user_id = h.user_id
         WHERE h.status = 'scheduled'
+          AND h.scheduled_departure <= ?
         ORDER BY h.expected_arrival ASC
-    `);
+    `, [nowIso]);
 
     if (hikeRows.length === 0) {
         return [];
@@ -145,7 +148,7 @@ export const getActiveHikes = async () => {
         passagesByHikeId.get(passage.hikeId).push(passage.name);
     }
 
-    const now = Date.now();
+    const nowMs = Date.parse(nowIso);
 
     return hikeRows.map(row => ({
         hikeId: row.hikeId,
@@ -157,7 +160,7 @@ export const getActiveHikes = async () => {
         partySize: row.partySize,
         status: row.status,
         createdAt: row.createdAt,
-        isOverdue: Date.parse(row.expectedArrival) < now,
+        isOverdue: Date.parse(row.expectedArrival) < nowMs,
         hiker: {
             userId: row.userId,
             name: row.hikerName,
