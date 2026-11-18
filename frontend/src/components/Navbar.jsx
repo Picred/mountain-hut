@@ -25,6 +25,18 @@ export const Navbar = ({ user, loggedIn, onLogout }) => {
           {/* Sezione Azioni e Profilo */}
           <div className="flex items-center gap-2 sm:gap-3">
 
+            {/* Public page with meal times and menus.
+                Hidden on small screens, where the navbar has no room left:
+                there the page is reached from the Services page. */}
+            {!user?.passwordToChange && (
+              <button
+                className="btn btn-ghost btn-sm hidden text-neutral-300 hover:text-white hover:bg-neutral-800 md:inline-flex"
+                onClick={() => navigate("/meals")}
+              >
+                Menu
+              </button>
+            )}
+
             {/* CTA Principale: Prenota un tavolo */}
             {!user?.passwordToChange && (
               <button

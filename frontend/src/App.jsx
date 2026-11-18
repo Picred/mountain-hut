@@ -16,6 +16,7 @@ import { LocationPage } from './pages/Location';
 import { ServicesPage } from './pages/Services';
 import { ExcursionsPage } from './pages/Excursions';
 import { HikeRegistrationPage } from './pages/HikeRegistrationPage';
+import { MealsPage } from './pages/MealsPage';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -205,6 +206,7 @@ export const App = () => {
           <Route path="/location" element={<LocationPage />} />
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/excursions" element={<ExcursionsPage />} />
+          <Route path="/meals" element={<MealsPage />} />
 
           <Route
             path="/reservations"
