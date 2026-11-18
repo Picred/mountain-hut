@@ -17,6 +17,7 @@ import { ServicesPage } from './pages/Services';
 import { ExcursionsPage } from './pages/Excursions';
 import { HikeRegistrationPage } from './pages/HikeRegistrationPage';
 import { MealsPage } from './pages/MealsPage';
+import { ActiveHikesPage } from './pages/ActiveHikesPage';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -291,6 +292,29 @@ export const App = () => {
               )
             }
           />
+
+
+          <Route
+            path="/employee/hikes"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate
+                  to="/login"
+                  replace
+                  state={{ from: location.pathname }}
+                />
+              ) : user?.role !== "employee" ? (
+                <Navigate to="/" replace />
+              ) : (
+                <ActiveHikesPage />
+              )
+            }
+          />
+
 
           <Route
             path="/capacity"
