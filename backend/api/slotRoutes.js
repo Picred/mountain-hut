@@ -2,7 +2,7 @@ import { Router } from 'express';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 
-import ensureRole from '../middlewares/role-middleware.js';
+import ensureRole, { hasRole } from '../middlewares/role-middleware.js';
 import {
     getSlotsByDate,
     getSecondsUntilStart,
@@ -45,7 +45,7 @@ router.get('/', async (req, res) => {
         throw new BadRequestError('INVALID_DATE');
     }
 
-    const slots = await getSlotsByDate(date, req.user?.role === 'employee');
+    const slots = await getSlotsByDate(date, hasRole(req.user, 'employee'));
 
     return res.status(200).json(slots);
 });
@@ -95,7 +95,7 @@ router.get('/:slotId/availability', async (req, res) => {
     }
 
     // Hikers book at least 2 hours before the slot starts, an employee until it starts.
-    const minimumSeconds = req.user?.role === 'employee' ? 1 : 7200;
+    const minimumSeconds = hasRole(req.user, 'employee') ? 1 : 7200;
     const { available, tableAllocation } = secondsUntilStart >= minimumSeconds
         ? await checkAvailability(slotId, partySize)
         : { available: false, tableAllocation: [] };
