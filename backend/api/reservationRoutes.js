@@ -5,6 +5,7 @@ import { hashPassword } from '../models/dao/authenticationDAO.js';
 import { sendBookingConfirmation, sendChangesConfirmation, sendCancellationConfirmation } from '../services/confirmation.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import UnauthorizedError from '../models/errors/UnauthorizedError.js';
+import { hasRole } from '../middlewares/role-middleware.js';
 
 const router = Router();
 
@@ -82,7 +83,7 @@ router.post('/', async (req, res) => {
     }
 
     let reservation;
-    if (req.user.role === 'employee') {
+    if (hasRole(req.user, 'employee')) {
         const booking = await readHiker(hiker, userId);
         reservation = await makeReservation(slotId, booking.userId, partySize, requirements, booking.byEmployee);
         if (booking.temporaryPassword) {

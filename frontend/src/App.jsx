@@ -18,6 +18,7 @@ import { ExcursionsPage } from './pages/Excursions';
 import { HikeRegistrationPage } from './pages/HikeRegistrationPage';
 import { MealsPage } from './pages/MealsPage';
 import { ActiveHikesPage } from './pages/ActiveHikesPage';
+import { isEmployee } from './utils/roles';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -219,7 +220,7 @@ export const App = () => {
               ) : loggedIn && user?.role !== 'hiker' ? (
                 // Employees enter reservations from their own page.
                 <Navigate
-                  to={user?.role === 'employee' ? '/employee/reservations' : '/'}
+                  to={isEmployee(user) ? '/employee/reservations' : '/'}
                   replace
                 />
               ) : (
@@ -285,7 +286,7 @@ export const App = () => {
                   replace
                   state={{ from: location.pathname }}
                 />
-              ) : user?.role !== "employee" ? (
+              ) : !isEmployee(user) ? (
                 <Navigate to="/" replace />
               ) : (
                 <EmployeeReservationPage />
@@ -307,7 +308,7 @@ export const App = () => {
                   replace
                   state={{ from: location.pathname }}
                 />
-              ) : user?.role !== "employee" ? (
+              ) : !isEmployee(user) ? (
                 <Navigate to="/" replace />
               ) : (
                 <ActiveHikesPage />
@@ -329,7 +330,7 @@ export const App = () => {
                   replace
                   state={{ from: location.pathname }}
                 />
-              ) : user?.role !== "employee" ? (
+              ) : !isEmployee(user) ? (
                 <Navigate to="/" replace />
               ) : (
                 <CapacityPage />
