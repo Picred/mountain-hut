@@ -66,6 +66,19 @@ describe('Navbar', () => {
     expect(screen.queryByRole('button', { name: /Reserve a table|Book/ })).not.toBeInTheDocument();
   });
 
+  it('gives a warden the employee options', async () => {
+    const user = userEvent.setup();
+    renderNavbar({ user: { user_id: 3, name: 'Julia White', role: 'warden' }, loggedIn: true });
+
+    expect(screen.getByRole('button', { name: /Capacity Management/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Active Hikes/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'My reservations' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /New reservation/ }));
+
+    expect(navigate).toHaveBeenCalledWith('/employee/reservations');
+  });
+
   it('navigates to the homepage when the logo is clicked', async () => {
     const user = userEvent.setup();
     renderNavbar();

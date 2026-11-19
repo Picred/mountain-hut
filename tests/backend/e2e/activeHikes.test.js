@@ -231,15 +231,21 @@ describe('GET `/api/hikes/active`', () => {
         expect(res.body).toEqual({ error: 'UNAUTHORIZED' });
     });
 
-    it.each([
-        ['hiker', ANNA],
-        ['warden', JULIA],
-    ])('returns 403 if the authenticated user is a %s', async (_role, email) => {
-        const cookie = await loginAs(email);
+    it('returns 403 if the authenticated user is a hiker', async () => {
+        const cookie = await loginAs(ANNA);
 
         const res = await getActiveHikes(cookie);
 
         expect(res.status).toBe(403);
         expect(res.body).toEqual({ error: 'FORBIDDEN' });
+    });
+
+    it('lets a warden see the active hikes, as an employee', async () => {
+        const cookie = await loginAs(JULIA);
+
+        const res = await getActiveHikes(cookie);
+
+        expect(res.status).toBe(200);
+        expect(res.body.map((h) => h.hikeId)).toEqual([OVERDUE_SEED_HIKE]);
     });
 });
