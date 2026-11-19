@@ -42,6 +42,33 @@ async function registerHike(hike) {
     return await response.json();
 }
 
-const hikeAPI = { registerHike };
+
+async function getActiveHikes() {
+    const response = await fetch(`${SERVER_URL}/api/hikes/active`, {
+        method: "GET",
+        credentials: "include",
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            throw new Error("Please log in to view active hikes.");
+        }
+
+        if (response.status === 403) {
+            throw new Error("Only employees can view active hikes.");
+        }
+
+        throw new Error(
+            response.status >= 500
+                ? "A server error occurred while loading active hikes. Please try again."
+                : "Unable to load active hikes. Please try again."
+        );
+    }
+
+    return await response.json();
+}
+
+
+const hikeAPI = { registerHike, getActiveHikes };
 
 export default hikeAPI;

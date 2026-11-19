@@ -17,6 +17,8 @@ import { ServicesPage } from './pages/Services';
 import { ExcursionsPage } from './pages/Excursions';
 import { HikeRegistrationPage } from './pages/HikeRegistrationPage';
 import { MealsPage } from './pages/MealsPage';
+import { ActiveHikesPage } from './pages/ActiveHikesPage';
+import { isEmployee } from './utils/roles';
 
 export const App = () => {
   const [user, setUser] = useState(undefined);
@@ -218,7 +220,7 @@ export const App = () => {
               ) : loggedIn && user?.role !== 'hiker' ? (
                 // Employees enter reservations from their own page.
                 <Navigate
-                  to={user?.role === 'employee' ? '/employee/reservations' : '/'}
+                  to={isEmployee(user) ? '/employee/reservations' : '/'}
                   replace
                 />
               ) : (
@@ -284,13 +286,36 @@ export const App = () => {
                   replace
                   state={{ from: location.pathname }}
                 />
-              ) : user?.role !== "employee" ? (
+              ) : !isEmployee(user) ? (
                 <Navigate to="/" replace />
               ) : (
                 <EmployeeReservationPage />
               )
             }
           />
+
+
+          <Route
+            path="/employee/hikes"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate
+                  to="/login"
+                  replace
+                  state={{ from: location.pathname }}
+                />
+              ) : !isEmployee(user) ? (
+                <Navigate to="/" replace />
+              ) : (
+                <ActiveHikesPage />
+              )
+            }
+          />
+
 
           <Route
             path="/capacity"
@@ -305,7 +330,7 @@ export const App = () => {
                   replace
                   state={{ from: location.pathname }}
                 />
-              ) : user?.role !== "employee" ? (
+              ) : !isEmployee(user) ? (
                 <Navigate to="/" replace />
               ) : (
                 <CapacityPage />

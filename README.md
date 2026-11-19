@@ -46,6 +46,8 @@ Content (plain text and HTML):
 
 ### APIs
 
+Roles: the warden can also perform the employee functions, so every API that requires the role `employee` is also allowed to the warden.
+
 #### Authentication
 ##### POST `/api/users`
 Creates the account of a hiker, given his personal information

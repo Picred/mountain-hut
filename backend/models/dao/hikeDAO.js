@@ -1,7 +1,7 @@
 import sqlite from 'sqlite3';
 
 import { DB_PATH } from '../../db/db.js';
-import { dbGet, dbRun } from '../../utils/dbHelpers.js';
+import { dbAll, dbGet, dbRun } from '../../utils/dbHelpers.js';
 import ConflictError from '../errors/ConflictError.js';
 
 export const createHike = async (userId, hike) => {
@@ -21,7 +21,7 @@ export const createHike = async (userId, hike) => {
               AND scheduled_departure < ?
               AND expected_arrival > ?
             LIMIT 1
-`, [
+        `, [
             userId,
             hike.expectedArrival,
             hike.scheduledDeparture
@@ -98,4 +98,76 @@ export const createHike = async (userId, hike) => {
             });
         });
     }
+};
+
+export const getActiveHikes = async () => {
+    const nowIso = new Date().toISOString();
+
+    const hikeRows = await dbAll(`
+        SELECT
+            h.hike_id AS hikeId,
+            h.destination,
+            h.route,
+            h.scheduled_departure AS scheduledDeparture,
+            h.expected_arrival AS expectedArrival,
+            h.party_size AS partySize,
+            h.status,
+            h.created_at AS createdAt,
+            u.user_id AS userId,
+            u.name AS hikerName,
+            u.email AS hikerEmail,
+            u.phone AS hikerPhone,
+            u.notes AS hikerNotes,
+            u.emergency_contact AS hikerEmergencyContact
+        FROM hikes h
+        JOIN users u ON u.user_id = h.user_id
+        WHERE h.status = 'scheduled'
+          AND h.scheduled_departure <= ?
+        ORDER BY h.expected_arrival ASC
+    `, [nowIso]);
+
+    if (hikeRows.length === 0) {
+        return [];
+    }
+
+    const hikeIds = hikeRows.map(row => row.hikeId);
+    const placeholders = hikeIds.map(() => '?').join(', ');
+
+    const passageRows = await dbAll(`
+        SELECT hike_id AS hikeId, name
+        FROM hike_passages
+        WHERE hike_id IN (${placeholders})
+        ORDER BY hike_id ASC, position ASC
+    `, hikeIds);
+
+    const passagesByHikeId = new Map();
+    for (const passage of passageRows) {
+        if (!passagesByHikeId.has(passage.hikeId)) {
+            passagesByHikeId.set(passage.hikeId, []);
+        }
+        passagesByHikeId.get(passage.hikeId).push(passage.name);
+    }
+
+    const nowMs = Date.parse(nowIso);
+
+    return hikeRows.map(row => ({
+        hikeId: row.hikeId,
+        destination: row.destination,
+        route: row.route,
+        passages: passagesByHikeId.get(row.hikeId) ?? [],
+        scheduledDeparture: row.scheduledDeparture,
+        expectedArrival: row.expectedArrival,
+        partySize: row.partySize,
+        status: row.status,
+        createdAt: row.createdAt,
+        isOverdue: Date.parse(row.expectedArrival) < nowMs,
+        hiker: {
+            userId: row.userId,
+            name: row.hikerName,
+            email: row.hikerEmail,
+            phone: row.hikerPhone,
+            notes: row.hikerNotes ?? null,
+            emergencyContact: row.hikerEmergencyContact ?? null
+        }
+    }));
 };
