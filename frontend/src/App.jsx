@@ -18,6 +18,7 @@ import { ExcursionsPage } from './pages/Excursions';
 import { HikeRegistrationPage } from './pages/HikeRegistrationPage';
 import { MealsPage } from './pages/MealsPage';
 import { ActiveHikesPage } from './pages/ActiveHikesPage';
+import { MyHikesPage } from './pages/MyHikesPage';
 import { isEmployee } from './utils/roles';
 
 export const App = () => {
@@ -248,6 +249,27 @@ export const App = () => {
                 <Navigate to="/" replace />
               ) : (
                 <MyReservationsPage />
+              )
+            }
+          />
+
+          <Route
+            path="/my-hikes"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate
+                  to="/login"
+                  replace
+                  state={{ from: location.pathname }}
+                />
+              ) : user?.role !== "hiker" ? (
+                <Navigate to="/" replace />
+              ) : (
+                <MyHikesPage />
               )
             }
           />
