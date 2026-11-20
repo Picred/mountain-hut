@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    image: ${DOCKERHUB_USERNAME:-mountainhut}/mountainhut:backend
+    container_name: mountain-hut-backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - db_data:/app/db
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - CORS_ORIGIN=http://localhost:5173
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    image: ${DOCKERHUB_USERNAME:-mountainhut}/mountainhut:frontend
+    container_name: mountain-hut-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:
