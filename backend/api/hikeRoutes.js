@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import ensureRole from '../middlewares/role-middleware.js';
-import { registerHike, listActiveHikes } from '../services/hikeService.js';
+import { registerHike, listActiveHikes, confirmArrival, listHikersHikes} from '../services/hikeService.js';
 
 const router = Router();
 
@@ -26,5 +26,29 @@ router.post('/', ensureRole('hiker'), async (req, res) => {
 
     return res.status(201).json(hike);
 });
+
+
+/**
+ * PUT /api/hikes/:hikeId/confirm-arrival
+ *
+ */
+
+router.put('/:hikeId/confirm-arrival',ensureRole('hiker'), async (req,res) => {
+    const confirmed = await confirmArrival(
+            req.user.user_id,
+            req.params.hikeId
+        );
+    return res.status(200).json(confirmed);
+})
+
+/**
+ * GET /api/hikes
+ */
+
+router.get('/', ensureRole('hiker'), async(req,res) => {
+    const hikes = await listHikersHikes(req.user.user_id)
+
+    return res.status(200).json(hikes);
+})
 
 export default router;

@@ -1,4 +1,4 @@
-import { createHike, getActiveHikes } from '../models/dao/hikeDAO.js';
+import { createHike, getActiveHikes, confirmSafeArrival, getHikersHikes } from '../models/dao/hikeDAO.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import { isNonEmptyString, isPositiveInt, isValidIsoDateTime } from '../utils/validator.js';
 
@@ -64,3 +64,20 @@ export const registerHike = async (userId, data) => {
 export const listActiveHikes = async () => {
     return await getActiveHikes();
 };
+
+
+export const confirmArrival = async (userId, hikeId) => {
+    if (!Number.isInteger(Number(userId)) || Number(userId) < 1 ||
+        !Number.isInteger(Number(hikeId)) || Number(hikeId) < 1) {
+        throw new BadRequestError("INVALID_INPUT")
+    }
+    return await confirmSafeArrival(Number(userId), Number(hikeId));
+}
+
+
+export const listHikersHikes = async (userId) => {
+    if (!Number.isInteger(Number(userId)) || Number(userId) < 1) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+    return await getHikersHikes(Number(userId));
+}
