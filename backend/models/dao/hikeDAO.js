@@ -1,4 +1,5 @@
 import sqlite from 'sqlite3';
+import NotFoundError from '../errors/NotFoundError.js';
 
 import { DB_PATH } from '../../db/db.js';
 import { dbAll, dbGet, dbRun } from '../../utils/dbHelpers.js';
@@ -171,3 +172,91 @@ export const getActiveHikes = async () => {
         }
     }));
 };
+
+
+export const confirmSafeArrival = async (userId, hikeId) => {
+    const hike = await dbGet(`
+        SELECT status
+        FROM hikes
+        WHERE hike_id = ? AND user_id = ?
+    `, [hikeId, userId]);
+
+    if (!hike) {
+        throw new NotFoundError('HIKE_NOT_FOUND');
+    }
+
+    const result = await dbRun(`
+        UPDATE hikes
+        SET status = 'returned'
+        WHERE hike_id = ?
+          AND user_id = ?
+          AND status = 'scheduled'
+    `, [hikeId, userId]);
+
+    if (result.changes !== 1) {
+        throw new ConflictError('HIKE_ALREADY_CONFIRMED');
+    }
+
+    return {
+        hikeId,
+        userId,
+        status: 'returned'
+    };
+};
+
+
+export const getHikersHikes = async (userId) => {
+
+    const hikeRows = await dbAll(`
+        SELECT
+            hike_id AS hikeId,
+            destination,
+            route,
+            scheduled_departure AS scheduledDeparture,
+            expected_arrival AS expectedArrival,
+            party_size AS partySize,
+            status,
+            created_at AS createdAt
+        FROM hikes
+        WHERE user_id = ?
+        ORDER BY scheduled_departure ASC
+    `, [userId]);
+
+    if (hikeRows.length === 0) {
+        return [];
+    }
+
+    const hikeIds = hikeRows.map(row => row.hikeId);
+    const placeholders = hikeIds.map(() => '?').join(', ');
+
+    const passageRows = await dbAll(`
+        SELECT hike_id AS hikeId, name
+        FROM hike_passages
+        WHERE hike_id IN (${placeholders})
+        ORDER BY hike_id ASC, position ASC
+    `, hikeIds);
+
+    const passagesByHikeId = new Map();
+
+    for (const passage of passageRows) {
+        if (!passagesByHikeId.has(passage.hikeId)) {
+            passagesByHikeId.set(passage.hikeId, []);
+        }
+
+        passagesByHikeId.get(passage.hikeId).push(passage.name);
+    }
+
+    return hikeRows.map(row => ({
+        hikeId: row.hikeId,
+        destination: row.destination,
+        route: row.route,
+        passages: passagesByHikeId.get(row.hikeId) ?? [],
+        scheduledDeparture: row.scheduledDeparture,
+        expectedArrival: row.expectedArrival,
+        partySize: row.partySize,
+        status: row.status,
+        createdAt: row.createdAt
+    }));
+};
+
+
