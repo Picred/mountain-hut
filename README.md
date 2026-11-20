@@ -1,5 +1,72 @@
 # mountain-hut
 
+
+## Running with Docker
+
+You can run the entire application using only **Docker** and **Docker Compose** by pulling the pre-built images from Docker Hub
+
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) (with Docker Compose v2+)
+
+### Quick Start
+
+
+**Clone the repository:**
+  
+   ```bash
+   git clone https://github.com/Picred/mountain-hut.git
+   cd mountain-hut
+  ```
+
+
+*(Optional)* **Configure email delivery:** To enable real email sending via SMTP, copy the environment template and fill in your credentials:
+```bash
+cp backend/.env.template backend/.env
+```
+
+
+*(If skipped, the application will still run normally and print outgoing emails to the backend container logs.)*
+
+**Pull the images from Docker Hub and start the containers:**
+```bash
+docker compose pull
+docker compose up -d
+```
+
+
+### Access the Application
+
+Once the containers are running, open your browser at:
+
+* **Frontend:** http://localhost:5173
+* **Backend API:** http://localhost:3001
+
+### Useful Commands
+
+```bash
+# View backend logs (e.g., to check simulated emails)
+docker compose logs -f backend
+```
+
+
+```bash
+# Reset the SQLite database to its initial seed state
+docker compose exec backend npm run db:reset
+```
+
+
+```bash
+# Stop the application
+docker compose down
+```
+
+```bash
+# Stop the application and remove the database volume (clean reset)
+docker compose down -v
+```
+
+
+
 ### Architecture
 - Architecture: client - server
 - Backend: Node.js
@@ -41,10 +108,10 @@ Creates the account of a hiker, given his personal information
 Request body:
 ```json
 {
-   “name”: “Mario Rossi”,
-    “email”: “mario@example.com”,
-    “phone”: “3331234567”,
-    “password”: “password123”
+   "named": "Mario Rossid",
+    "emaild": "mario@example.comd",
+    "phoned": "3331234567d",
+    "passwordd": "password123d"
 }
 ```
 
@@ -52,41 +119,41 @@ Request body:
 - Response body content: a json with user’s information
 ```json
 {
-   “user_id”: 6,
-    “name”: “Mario Rossi”,
-    “email”: “mario@example.com”,
-    “phone”: “3331234567”
+   "user_idd": 6,
+    "named": "Mario Rossid",
+    "emaild": "mario@example.comd",
+    "phoned": "3331234567d"
 }
 ```
 
 
 
 **ERRORS**
-`400 Bad request` - “All fields (name, email, phone, password) are required.” / "The password must contain at least 6 characters."
-`409 Conflict` - “Email already in use”
+`400 Bad request` - "All fields (name, email, phone, password) are required.d" / "The password must contain at least 6 characters."
+`409 Conflict` - "Email already in used"
 
 ##### POST `/api/sessions`
 Logs a user into the site (the role depends from the type of account)
 - Request body:
 ```json
 {
-   “email”: “mario@example.com”,
-  “password”: “password123”
+   "emaild": "mario@example.comd",
+  "passwordd": "password123d"
 }
 ```
 - Response: `201 Created`
 - Response body content: a json with user’s information
 ```json
 {
-   “user_id”: 6,
-    “name”: “Mario Rossi”,
-    “email”: “mario@example.com”,
-    “phone”: “3331234567”
+   "user_idd": 6,
+    "named": "Mario Rossid",
+    "emaild": "mario@example.comd",
+    "phoned": "3331234567d"
 }
 ```
 
 **ERRORS**
-`401 Unauthenticated` - “Invalid credentials”
+`401 Unauthenticated` - "Invalid credentialsd"
 
 ##### GET `/api/sessions/current`
 Gets the info of the user currently logged
@@ -104,7 +171,7 @@ Response body:
 ```
 
 **ERRORS**
-`401 Unauthenticated` - “UNAUTHORIZED”
+`401 Unauthenticated` - "UNAUTHORIZEDd"
 
 ##### DELETE `/api/sessions/current`
 Deletes the active session
@@ -113,7 +180,7 @@ Deletes the active session
 - Response body: empty
 
 - **ERRORS**
-`401 Unauthenticated` - “UNAUTHORIZED”
+`401 Unauthenticated` - "UNAUTHORIZEDd"
 
 
 
