@@ -68,7 +68,62 @@ async function getActiveHikes() {
     return await response.json();
 }
 
+async function getHikerHikes() {
+    const response = await fetch(`${SERVER_URL}/api/hikes`, {
+        method: "GET",
+        credentials: "include",
+    });
 
-const hikeAPI = { registerHike, getActiveHikes };
+    if (!response.ok) {
+        if (response.status === 401) {
+            throw new Error("Please log in to view your hikes.");
+        }
+        if (response.status === 403) {
+            throw new Error("Only hikers can view their hikes.");
+        }
+        throw new Error(
+            response.status >= 500
+                ? "A server error occurred while loading your hikes. Please try again."
+                : "Unable to load your hikes. Please try again."
+        );
+    }
+
+    return await response.json();
+}
+
+async function confirmHikeArrival(hikeId) {
+    const response = await fetch(`${SERVER_URL}/api/hikes/${hikeId}/confirm-arrival`, {
+        method: "PUT",
+        credentials: "include",
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+
+        if (response.status === 401) {
+            throw new Error("Please log in to confirm your safe arrival.");
+        }
+        if (response.status === 403) {
+            throw new Error("Only hikers can confirm a hike arrival.");
+        }
+        if (errorData.error === "HIKE_NOT_FOUND") {
+            throw new Error("This hike could not be found.");
+        }
+        if (errorData.error === "HIKE_ALREADY_CONFIRMED") {
+            throw new Error("This hike has already been marked as returned.");
+        }
+
+        throw new Error(
+            response.status >= 500
+                ? "A server error occurred while confirming your arrival. Please try again."
+                : "Unable to confirm your safe arrival. Please try again."
+        );
+    }
+
+    return await response.json();
+}
+
+
+const hikeAPI = { registerHike, getActiveHikes, getHikerHikes, confirmHikeArrival };
 
 export default hikeAPI;
