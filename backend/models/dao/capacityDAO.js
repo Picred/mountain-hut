@@ -39,6 +39,7 @@ const SLOT_SELECT = `
 
 // a slot without tables has hasTables = false and totalSeats = 0
 
+
 const buildSlots = rows => {
     const slots = new Map();
 
@@ -63,11 +64,17 @@ const buildSlots = rows => {
 
             const seats = Number(row.seats);
             const bookedSeats = Number(row.booked_seats ?? 0);
+            const remainingSeats = seats - bookedSeats;
 
             slot.tables.push({
                 tableId: row.table_id,
                 code: row.table_code,
-                seats: row.seats
+                seats,
+                bookedSeats,
+                remainingSeats,
+                occupancyPercentage: seats > 0
+                    ? Math.round((bookedSeats / seats) * 100)
+                    : 0
             });
 
             slot.totalSeats += seats;
@@ -86,6 +93,7 @@ const buildSlots = rows => {
 
     return [...slots.values()];
 };
+
 
 /**
  * Retrieves all slots, including slots without tables, with their
