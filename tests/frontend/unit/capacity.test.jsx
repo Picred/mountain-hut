@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 
 const capacityAPI = vi.hoisted(() => ({
   getSlots: vi.fn(),
@@ -49,7 +50,11 @@ describe('CapacityPage', () => {
       { tableId: 1, code: 'T1', seats: 6 },
     ])]);
 
-    render(<CapacityPage />);
+    render(
+      <MemoryRouter>
+        <CapacityPage />
+      </MemoryRouter>
+    );
 
     expect(await screen.findByText(/12:00.*13:00/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'View Tables' }));
@@ -67,7 +72,11 @@ describe('CapacityPage', () => {
       ])]);
     capacityAPI.addTablesToSlot.mockResolvedValue({});
 
-    render(<CapacityPage />);
+    render(
+      <MemoryRouter>
+        <CapacityPage />
+      </MemoryRouter>
+    );
 
     await user.click(await screen.findByRole('button', { name: 'Assign Tables' }));
     await user.click(screen.getByRole('checkbox'));
