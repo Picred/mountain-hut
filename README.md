@@ -75,13 +75,15 @@ docker compose down -v
 - Email: Nodemailer
 
 ### Database tables
-- `users` contains user_id, name (text), email (text), phone (text), password_hash (text), salt (text), role (text), password_to_change (0/1), reset_token_hash (text), reset_token_expires_at (text)
+- `users` contains user_id, name (text), email (text), phone (text), password_hash (text), salt (text), role (text), password_to_change (0/1), reset_token_hash (text), reset_token_expires_at (text), notes (text, nullable), emergency_contact (text, nullable)
 - `slots` contains slot_id, start_at (text), end_at (text), menu (text, nullable)
 - `tables` contains table_id, table_code (text), seats (number)
 - `slot_tables` contains slot_table_id, slot_id, table_id
 - `reservations` contains reservation_id, slot_id, user_id, guest_name (text), guest_phone (text), created_by (user_id), party_size (number), status (text), created_at (text)
 - `reservation_table` contains reservation_id, slot_table_id, allocated_seats (number)
 - `reservation_requirements` contains id, reservation_id, people_count (number), description (text), is_allergy (boolean)
+- `hikes` contains hike_id, user_id, destination (text), route (text), scheduled_departure (text), expected_arrival (text), party_size (number), status (text), created_at (text)
+- `hike_passages` contains hike_id, position (number), name (text)
 
 Dates and times (`start_at`, `end_at`, `created_at`) are ISO 8601 strings in UTC.
 
@@ -1077,3 +1079,55 @@ Retrieves the meal times and menu for a specific slot.
 - **Errors:**
   - `400 Bad Request` — `INVALID_INPUT` (invalid `slotId`).
   - `404 Not Found` — `SLOT_NOT_FOUND`
+
+
+#### MH-21 - Monitor Active Hikes
+
+##### GET `/api/hikes/active`
+
+Retrieves all hikers currently registered as being on a hike, including overdue hikes, ordered by expected arrival time ascending. Completed (`returned`) and `cancelled` hikes are excluded.
+
+- **Authentication:** required (role `employee`).
+- **Response:** `200 OK` — an array of active hikes ordered by `expectedArrival` ascending (empty if none), each containing:
+  - `hikeId`
+  - `destination`
+  - `route`
+  - `passages` (array of intermediate passage point names in route order, empty if none)
+  - `scheduledDeparture` (ISO 8601, UTC)
+  - `expectedArrival` (ISO 8601, UTC)
+  - `partySize`
+  - `status` (`scheduled`)
+  - `createdAt` (ISO 8601, UTC)
+  - `isOverdue` (boolean, `true` if `expectedArrival` is in the past)
+  - `hiker` (an object containing `userId`, `name`, `email`, `phone`, `notes`, `emergencyContact`; `notes` and `emergencyContact` are `null` if not defined)
+
+```json
+[
+  {
+    "hikeId": 4,
+    "destination": "Viso Mozzo",
+    "route": "Ridge route, return through the Vallanta valley",
+    "passages": [
+      "Vallanta pass"
+    ],
+    "scheduledDeparture": "2026-11-18T08:00:00.000Z",
+    "expectedArrival": "2026-11-18T15:00:00.000Z",
+    "partySize": 1,
+    "status": "scheduled",
+    "createdAt": "2026-11-18T07:45:00.000Z",
+    "isOverdue": true,
+    "hiker": {
+      "userId": 5,
+      "name": "Edward Coles",
+      "email": "edward@mountainhut.test",
+      "phone": "+393451234567",
+      "notes": null,
+      "emergencyContact": null
+    }
+  },
+…
+]
+* **Errors:**
+* `401 Unauthorized` — `UNAUTHORIZED`
+* `401 Forbidden` — `FORBIDDEN` (the authenticated user is not an employee)
+
