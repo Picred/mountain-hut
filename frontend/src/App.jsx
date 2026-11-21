@@ -11,6 +11,7 @@ import { Layout } from './pages/Layout';
 import { ReservationPage } from './pages/ReservationPage';
 import { EmployeeReservationPage } from './pages/EmployeeReservationPage';
 import { CapacityPage } from './pages/CapacityPage';
+import { OccupancyPage } from './pages/OccupancyPage';
 import { MyReservationsPage } from './pages/MyReservationsPage';
 import { LocationPage } from './pages/Location';
 import { ServicesPage } from './pages/Services';
@@ -356,6 +357,27 @@ export const App = () => {
                 <Navigate to="/" replace />
               ) : (
                 <CapacityPage />
+              )
+            }
+          />
+
+          <Route
+            path="/occupancy"
+            element={
+              sessionLoading ? (
+                <div className="flex items-center justify-center text-slate-300">
+                  Checking session...
+                </div>
+              ) : !loggedIn ? (
+                <Navigate
+                  to="/login"
+                  replace
+                  state={{ from: location.pathname }}
+                />
+              ) : !isEmployee(user) ? (
+                <Navigate to="/" replace />
+              ) : (
+                <OccupancyPage />
               )
             }
           />

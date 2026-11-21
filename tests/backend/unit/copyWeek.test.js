@@ -189,11 +189,34 @@ describe('copyWeek (DAO)', () => {
       copyTables: true,
       copyMenu: true,
       created: [
-        { slotId: 100, startAt: '2027-01-11T11:00:00.000Z', endAt: '2027-01-11T13:00:00.000Z', menu: LUNCH.menu, hasTables: false, totalSeats: 0, tables: [] },
-        { slotId: 101, startAt: '2027-01-13T18:00:00.000Z', endAt: '2027-01-13T21:30:00.000Z', menu: DINNER.menu, hasTables: false, totalSeats: 0, tables: [] },
+        {
+          slotId: 100,
+          startAt: '2027-01-11T11:00:00.000Z',
+          endAt: '2027-01-11T13:00:00.000Z',
+          menu: LUNCH.menu,
+          hasTables: false,
+          totalSeats: 0,
+          bookedSeats: 0,
+          remainingSeats: 0,
+          occupancyPercentage: 0,
+          tables: [],
+        },
+        {
+          slotId: 101,
+          startAt: '2027-01-13T18:00:00.000Z',
+          endAt: '2027-01-13T21:30:00.000Z',
+          menu: DINNER.menu,
+          hasTables: false,
+          totalSeats: 0,
+          bookedSeats: 0,
+          remainingSeats: 0,
+          occupancyPercentage: 0,
+          tables: [],
+        },
       ],
       skipped: [],
     });
+
   });
 
   it('copies into an earlier empty week without deleting anything', async () => {

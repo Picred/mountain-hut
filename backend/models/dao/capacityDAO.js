@@ -11,6 +11,7 @@ import ConflictError from '../errors/ConflictError.js';
 
 const toUtcIso = value => new Date(value).toISOString();
 
+
 const SLOT_SELECT = `
     SELECT
         s.slot_id,
@@ -19,13 +20,25 @@ const SLOT_SELECT = `
         s.menu,
         t.table_id,
         t.table_code,
-        t.seats
+        t.seats,
+        COALESCE(occupancy.booked_seats, 0) AS booked_seats
     FROM slots s
     LEFT JOIN slot_tables st ON st.slot_id = s.slot_id
     LEFT JOIN tables t ON t.table_id = st.table_id
+    LEFT JOIN (
+        SELECT
+            rt.slot_table_id,
+            SUM(rt.allocated_seats) AS booked_seats
+        FROM reservation_table rt
+        JOIN reservations r
+            ON r.reservation_id = rt.reservation_id
+        WHERE r.status = 'confirmed'
+        GROUP BY rt.slot_table_id
+    ) occupancy ON occupancy.slot_table_id = st.slot_table_id
 `;
 
 // a slot without tables has hasTables = false and totalSeats = 0
+
 
 const buildSlots = rows => {
     const slots = new Map();
@@ -39,28 +52,56 @@ const buildSlots = rows => {
                 menu: row.menu,
                 hasTables: false,
                 totalSeats: 0,
+                bookedSeats: 0,
+                remainingSeats: 0,
+                occupancyPercentage: 0,
                 tables: []
             });
         }
 
         if (row.table_id !== null) {
             const slot = slots.get(row.slot_id);
+
+            const seats = Number(row.seats);
+            const bookedSeats = Number(row.booked_seats ?? 0);
+            const remainingSeats = seats - bookedSeats;
+
             slot.tables.push({
                 tableId: row.table_id,
                 code: row.table_code,
-                seats: row.seats
+                seats,
+                bookedSeats,
+                remainingSeats,
+                occupancyPercentage: seats > 0
+                    ? Math.round((bookedSeats / seats) * 100)
+                    : 0
             });
-            slot.totalSeats += row.seats;
+
+            slot.totalSeats += seats;
+            slot.bookedSeats += bookedSeats;
             slot.hasTables = true;
         }
+    }
+
+    for (const slot of slots.values()) {
+        slot.remainingSeats = slot.totalSeats - slot.bookedSeats;
+
+        slot.occupancyPercentage = slot.totalSeats > 0
+            ? Math.round((slot.bookedSeats / slot.totalSeats) * 100)
+            : 0;
     }
 
     return [...slots.values()];
 };
 
+
 /**
- * retrieves all slots (also the ones without tables) with their tables and total seats
- * dates managed as in getSlotsByDate
+ * Retrieves all slots, including slots without tables, with their
+ * assigned tables, total capacity, booked seats, remaining seats,
+ * and occupancy percentage.
+ *
+ * Only confirmed reservations contribute to occupancy.
+ * Optional date filters follow the same rules as getSlotsByDate.
  */
 export const listSlots = async ({ from, to } = {}) => {
     const conditions = [];

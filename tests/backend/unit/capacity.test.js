@@ -78,46 +78,75 @@ describe('capacityDAO', () => {
           slot_id: 1,
           start_at: '2027-01-10T10:00:00.000Z',
           end_at: '2027-01-10T11:00:00.000Z',
+          menu: null,
           table_id: 2,
           table_code: 'B',
           seats: 4,
+          booked_seats: 2,
         },
         {
           slot_id: 1,
           start_at: '2027-01-10T10:00:00.000Z',
           end_at: '2027-01-10T11:00:00.000Z',
+          menu: null,
           table_id: 3,
           table_code: 'C',
           seats: 6,
+          booked_seats: 3
         },
         {
           slot_id: 2,
           start_at: '2027-01-11T10:00:00.000Z',
           end_at: '2027-01-11T11:00:00.000Z',
+          menu: null,
           table_id: null,
           table_code: null,
           seats: null,
+          booked_seats: 0
         },
       ]);
+
 
       await expect(listSlots({ from: '2027-01-10', to: '2027-01-11' })).resolves.toEqual([
         {
           slotId: 1,
           startAt: '2027-01-10T10:00:00.000Z',
           endAt: '2027-01-10T11:00:00.000Z',
+          menu: null,
           hasTables: true,
           totalSeats: 10,
+          bookedSeats: 5,
+          remainingSeats: 5,
+          occupancyPercentage: 50,
           tables: [
-            { tableId: 2, code: 'B', seats: 4 },
-            { tableId: 3, code: 'C', seats: 6 },
+            {
+              tableId: 2,
+              code: 'B',
+              seats: 4,
+              bookedSeats: 2,
+              remainingSeats: 2,
+              occupancyPercentage: 50,
+            },
+            {
+              tableId: 3,
+              code: 'C',
+              seats: 6,
+              bookedSeats: 3,
+              remainingSeats: 3,
+              occupancyPercentage: 50,
+            },
           ],
         },
         {
           slotId: 2,
           startAt: '2027-01-11T10:00:00.000Z',
           endAt: '2027-01-11T11:00:00.000Z',
+          menu: null,
           hasTables: false,
           totalSeats: 0,
+          bookedSeats: 0,
+          remainingSeats: 0,
+          occupancyPercentage: 0,
           tables: [],
         },
       ]);
@@ -132,7 +161,9 @@ describe('capacityDAO', () => {
 
       await expect(listSlots()).resolves.toEqual([]);
 
-      expect(dbAll.mock.calls[0][0]).not.toContain('WHERE');
+      expect(dbAll.mock.calls[0][0]).not.toContain("DATE(s.start_at, 'localtime') >= ?");
+      expect(dbAll.mock.calls[0][0]).not.toContain("DATE(s.start_at, 'localtime') <= ?");
+
       expect(dbAll.mock.calls[0][1]).toEqual([]);
     });
   });
