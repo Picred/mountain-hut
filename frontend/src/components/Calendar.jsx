@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 
 // Converts a Date object into a local YYYY-MM-DD string.
@@ -17,7 +16,7 @@ const dateKey = (date) => {
  * Props:
  * - selectedDate: currently selected date (YYYY-MM-DD).
  * - onDateSelect: callback triggered when a date is selected.
- * - dateStatuses: maps dates to their status ("success" or "warning").
+ * - dateStatuses: maps dates to their status ("success", "warning" or "danger").
  * - statusLegend: optional labels explaining the status indicators.
  * - minDate: optional minimum selectable date (YYYY-MM-DD).
  *
@@ -173,7 +172,9 @@ export const Calendar = ({
                                     ? "bg-emerald-400"
                                     : status === "warning"
                                         ? "bg-amber-400"
-                                        : "bg-transparent"
+                                        : status === "danger"
+                                            ? "bg-red-400"
+                                            : "bg-transparent"
                                     }`}
                             />
                         </button>
@@ -194,7 +195,9 @@ export const Calendar = ({
                                     ? "bg-emerald-400"
                                     : item.status === "warning"
                                         ? "bg-amber-400"
-                                        : "bg-transparent"
+                                        : item.status === "danger"
+                                            ? "bg-red-400"
+                                            : "bg-transparent"
                                     }`}
                             />
                             {item.label}

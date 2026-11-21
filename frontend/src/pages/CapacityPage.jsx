@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import capacityAPI from "../api/capacity_api";
 import Calendar from "../components/Calendar";
 import CopyWeeklySchedule from "../components/CopyWeeklySchedule";
@@ -20,6 +21,8 @@ const formatTime = (value) =>
     });
 
 export const CapacityPage = () => {
+    const navigate = useNavigate();
+
     // Data fetched from the capacity API and request status.
     const [slots, setSlots] = useState([]);
     const [availableTables, setAvailableTables] = useState([]);
@@ -429,14 +432,14 @@ export const CapacityPage = () => {
                                                     {menuConfigured ? "Menu configured" : "No menu defined"}
                                                 </p>
                                             </div>
-                                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                            <div className="flex shrink-0 flex-col items-stretch gap-2">
                                                 <button
                                                     type="button"
                                                     onClick={() => toggleSlot(slot.slotId, "tables")}
                                                     aria-label={tablesExpanded ? (configured ? "Close" : "Cancel") : (configured ? "View Tables" : "Assign Tables")}
                                                     aria-expanded={tablesExpanded}
                                                     title={tablesExpanded ? (configured ? "Close" : "Cancel") : (configured ? "View Tables" : "Assign Tables")}
-                                                    className={`flex shrink-0 items-center justify-center gap-2 whitespace-nowrap cursor-pointer h-11 px-4 rounded-xl border font-semibold text-sm transition-colors ${tablesExpanded
+                                                    className={`flex shrink-0 items-center justify-center gap-2 whitespace-nowrap cursor-pointer h-9 px-4 rounded-xl border font-semibold text-sm transition-colors ${tablesExpanded
                                                         ? "bg-sky-300 text-slate-950 border-sky-300"
                                                         : "bg-sky-300/10 border-sky-300/30 text-sky-300 hover:bg-sky-300/20"
                                                         }`}
@@ -467,7 +470,7 @@ export const CapacityPage = () => {
                                                                 ? "Edit Menu"
                                                                 : "Define Menu"
                                                     }
-                                                    className={`flex h-11 shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-4 text-sm font-semibold transition-colors ${menuExpanded
+                                                    className={`flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-2.5 text-sm font-semibold transition-colors ${menuExpanded
                                                         ? "border-sky-300 bg-sky-300 text-slate-950"
                                                         : "border-sky-300/30 bg-sky-300/10 text-sky-300 hover:bg-sky-300/20"
                                                         }`}
@@ -514,6 +517,25 @@ export const CapacityPage = () => {
                                                                 ? "Edit Menu"
                                                                 : "Define Menu"}
                                                 </button>
+
+                                                {/* Only slots with assigned tables have an occupancy to monitor. */}
+                                                {configured && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            navigate("/occupancy", {
+                                                                state: {
+                                                                    date: selectedDate,
+                                                                    slotId: slot.slotId,
+                                                                },
+                                                            })
+                                                        }
+                                                        className="flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-sky-300/30 bg-sky-300/10 px-2.5 text-sm font-semibold text-sky-300 transition-colors hover:bg-sky-300/20"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></svg>
+                                                        View occupancy
+                                                    </button>
+                                                )}
                                             </div>
 
                                         </div>
