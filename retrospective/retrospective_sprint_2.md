@@ -72,8 +72,11 @@ sections:
 - What lessons did you learn (both positive and negative) in this sprint?
 
   Positive:
+  - We learned that slightly overestimating tasks can help us accommodate unexpected additional work, such as fixing tests or making frontend adjustments, without significantly affecting the sprint schedule
+  - We realized that assigning tasks based on team members' availability helps maintain a continuous workflow. By planning around known commitments, we can distribute tasks more effectively and avoid long periods of inactivity or unnecessary delays
 
   Negative:
+  - We realized that implementing new user stories can introduce regressions in existing functionality or cause previously passing tests to fail. Therefore, we should always allocate some time during sprint planning for potential fixes and regression-related tasks
 
 
 - Which improvement goals set in the previous retrospective were you able to achieve? 
@@ -86,4 +89,4 @@ sections:
   - Reserve some time in story #0 for unforeseen fixes and refactoring, so that they do not affect the committed stories
 
 - One thing you are proud of as a Team!!
-  We completed all the committed stories, including the two left unfinished in the previous sprint, with an estimation error below 5% and a workload evenly shared among all of us.
+  - We completed all the committed stories, including the two left unfinished in the previous sprint, with an estimation error below 5% and a workload evenly shared among all of us.
