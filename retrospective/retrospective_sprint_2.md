@@ -72,7 +72,7 @@ sections:
 - What lessons did you learn (both positive and negative) in this sprint?
 
   Positive:
-  - We learned that slightly overestimating tasks can help us accommodate unexpected additional work, such as fixing tests or making frontend adjustments, without significantly affecting the sprint schedule
+  - We noticed that the slack from sligthly overestimated tasks absorbed the unexpected additional work, such as fixing tests or making frontend adjustments, without significantly affecting the sprint schedule
   - We realized that assigning tasks based on team members' availability helps maintain a continuous workflow. By planning around known commitments, we can distribute tasks more effectively and avoid long periods of inactivity or unnecessary delays
 
   Negative:
