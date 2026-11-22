@@ -114,7 +114,9 @@ export const MyHikesPage = () => {
             ) : (
                 <div className="space-y-4">
                     {hikes.map((hike) => {
-                        const canConfirm = hike.status === "scheduled";
+                        const departureTime = new Date(hike.scheduledDeparture).getTime();
+                        const hasStarted = !Number.isNaN(departureTime) && departureTime <= Date.now();
+                        const canConfirm = hike.status === "scheduled" && hasStarted;
 
                         return (
                             <article
