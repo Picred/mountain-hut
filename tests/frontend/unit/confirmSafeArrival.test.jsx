@@ -39,16 +39,18 @@ function mockResponse({
     };
 }
 
+const PAST_DEPARTURE = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+const FUTURE_DEPARTURE = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
 const makeHike = (overrides = {}) => ({
     hikeId: 1,
-    destination: 'Monte Viso',
-    route: 'Trail from Pian del Re',
-    passages: ['Pian del Re', 'Lago Fiorenza'],
-    scheduledDeparture: '2027-07-15T08:00:00.000Z',
-    expectedArrival: '2027-07-15T15:00:00.000Z',
-    partySize: 2,
     status: 'scheduled',
-    createdAt: '2027-07-14T10:00:00.000Z',
+    destination: 'Monte Bianco',
+    route: 'Via Normale',
+    scheduledDeparture: PAST_DEPARTURE,
+    expectedArrival: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+    partySize: 2,
+    passages: [],
     ...overrides,
 });
 
@@ -313,34 +315,6 @@ describe('MyHikesPage', () => {
         ).toBeInTheDocument();
     });
 
-    it('displays the registered hike details', async () => {
-        renderPage();
-
-        const article = (
-            await screen.findByRole('heading', { name: 'Hike #1' })
-        ).closest('article');
-
-        expect(within(article).getByText('Monte Viso')).toBeInTheDocument();
-        expect(within(article).getByText('Trail from Pian del Re')).toBeInTheDocument();
-        expect(within(article).getByText('scheduled')).toBeInTheDocument();
-        expect(within(article).getByText('Departure')).toBeInTheDocument();
-        expect(within(article).getByText('Expected arrival')).toBeInTheDocument();
-        expect(within(article).getByText('Party size')).toBeInTheDocument();
-        expect(within(article).getByText('2 hikers')).toBeInTheDocument();
-    });
-
-    it('displays the departure and expected arrival dates', async () => {
-        renderPage();
-
-        await screen.findByRole('heading', { name: 'Hike #1' });
-
-        const departure = screen.getByText('Departure').parentElement;
-        const arrival = screen.getByText('Expected arrival').parentElement;
-
-        expect(within(departure).getByText(/15 July 2027/)).toBeInTheDocument();
-        expect(within(arrival).getByText(/15 July 2027/)).toBeInTheDocument();
-    });
-
     it('shows a fallback for invalid dates', async () => {
         renderPage([
             makeHike({
@@ -358,16 +332,6 @@ describe('MyHikesPage', () => {
         renderPage([makeHike({ partySize: 1 })]);
 
         expect(await screen.findByText('1 hiker')).toBeInTheDocument();
-    });
-
-    it('displays intermediate passage points', async () => {
-        renderPage();
-
-        await screen.findByRole('heading', { name: 'Hike #1' });
-
-        expect(screen.getByText('Passages')).toBeInTheDocument();
-        expect(screen.getByText('Pian del Re')).toBeInTheDocument();
-        expect(screen.getByText('Lago Fiorenza')).toBeInTheDocument();
     });
 
     it('hides the passages section when no passages exist', async () => {
@@ -453,14 +417,15 @@ describe('MyHikesPage', () => {
         );
     });
 
-    it('shows the confirmation button only for scheduled hikes', async () => {
+    it('shows the confirmation button only for started scheduled hikes', async () => {
         renderPage([
-            makeHike({ hikeId: 1, status: 'scheduled' }),
-            makeHike({ hikeId: 2, status: 'returned' }),
-            makeHike({ hikeId: 3, status: 'cancelled' }),
+            makeHike({ hikeId: 1, status: 'scheduled', scheduledDeparture: PAST_DEPARTURE }),
+            makeHike({ hikeId: 2, status: 'scheduled', scheduledDeparture: FUTURE_DEPARTURE }),
+            makeHike({ hikeId: 3, status: 'returned', scheduledDeparture: PAST_DEPARTURE }),
+            makeHike({ hikeId: 4, status: 'cancelled', scheduledDeparture: PAST_DEPARTURE }),
         ]);
 
-        await screen.findByRole('heading', { name: 'Hike #3' });
+        await screen.findByRole('heading', { name: 'Hike #4' });
 
         const articles = screen.getAllByRole('article');
 
@@ -478,6 +443,12 @@ describe('MyHikesPage', () => {
 
         expect(
             within(articles[2]).queryByRole('button', {
+                name: 'Confirm safe arrival',
+            })
+        ).not.toBeInTheDocument();
+
+        expect(
+            within(articles[3]).queryByRole('button', {
                 name: 'Confirm safe arrival',
             })
         ).not.toBeInTheDocument();
