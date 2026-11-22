@@ -67,7 +67,7 @@ sections:
 
 - What caused your errors in estimation (if any)?
 
-  The overall error is small, but code review was underestimated: in particular the review of MH-7, one of the two stories carried over from sprint 1, took more than twice the estimated time. Some fixes (MH-101, MH-104) also took longer than expected and three tasks not foreseen at sprint planning were added during the sprint (MH-153 backend refactoring, MH-154 frontend fixes, MH-155 test fixes), while testing tasks were slightly overestimated, so the errors balanced out.
+  The overall error is small, but code review was underestimated: in particular the review of US-07, one of the two stories carried over from sprint 1, took more than twice the estimated time. Some fixes in story #0 ("fix 48h" and the "available seats" issue) also took longer than expected and three tasks not foreseen at sprint planning were added during the sprint (backend refactoring and frontend fixes in US-07, test fixes in US-09), while testing tasks were slightly overestimated, so the errors balanced out.
 
 - What lessons did you learn (both positive and negative) in this sprint?
 
