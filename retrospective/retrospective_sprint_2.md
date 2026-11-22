@@ -39,7 +39,13 @@ sections:
 | US-22  |    6    |    2   |   8h 15m   |    8h 15m    |
 | US-12  |    6    |    2   |   7h 45m   |    5h 30m    |
 
-- Hours per task  <span style="color:red">per person</span>  (average, standard deviation): average 1.11h, standard deviation 0.65h
+- Hours per task  <span style="color:red">per person</span>  (average, standard deviation):
+
+|            | Average | StDev |
+|------------|---------|-------|
+| Estimation | 1.15h   | 0.60h |
+| Actual     | 1.11h   | 0.65h |
+
 - Total task estimation error ratio: sum of total hours estimation / sum of total hours spent -1 = 99.92 / 96.17 - 1 = 0.039
 
   
