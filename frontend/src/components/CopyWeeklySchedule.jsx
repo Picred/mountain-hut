@@ -251,7 +251,7 @@ export default function CopyWeeklySchedule({ onClose, onSuccess }) {
                     {isSameWeek && (
                         <div
                             role="alert"
-                            className="mt-3 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3"
+                            className="mt-3 rounded-xl border-2 border-red-400 bg-[#172333] px-4 py-3 font-semibold shadow-xl"
                         >
                             <p className="text-sm text-red-300">
                                 Source and destination weeks must be different.
@@ -281,7 +281,7 @@ export default function CopyWeeklySchedule({ onClose, onSuccess }) {
 
                 {/* Replacement warning */}
                 {sourceWeekStart && destinationWeekStart && !isSameWeek && (
-                    <div className="mt-5 rounded-xl border border-amber-400/25 bg-amber-400/10 p-4">
+                    <div className="mt-5 rounded-xl border-2 border-amber-400 bg-[#172333] p-4 font-semibold shadow-xl">
                         <div className="flex items-start gap-3">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -317,7 +317,7 @@ export default function CopyWeeklySchedule({ onClose, onSuccess }) {
                 {copyError && (
                     <div
                         role="alert"
-                        className="mt-4 rounded-xl border border-red-400/30 bg-red-400/10 p-4"
+                        className="mt-4 rounded-xl border-2 border-red-400 bg-[#172333] p-4 font-semibold shadow-xl"
                     >
                         {reservationConflictSlots !== null ? (
                             <div>
