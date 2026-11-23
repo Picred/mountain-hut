@@ -162,7 +162,7 @@ export const HikerPicker = ({ onChange }) => {
             </div>
 
             {selected && (
-              <div className="flex items-start justify-between gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm">
+              <div className="flex items-start justify-between gap-3 rounded-xl border-2 border-emerald-400 bg-[#172333] p-4 text-sm font-semibold shadow-xl">
                 <div className="min-w-0">
                   <p className="text-xs uppercase tracking-wide text-emerald-300">
                     Selected hiker
@@ -199,7 +199,7 @@ export const HikerPicker = ({ onChange }) => {
               ) : searchError ? (
                 <p
                   role="alert"
-                  className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-300"
+                  className="rounded-xl border-2 border-red-400 bg-[#172333] p-4 text-sm font-semibold text-red-300 shadow-xl"
                 >
                   {searchError}
                 </p>

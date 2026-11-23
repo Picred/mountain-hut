@@ -30,7 +30,7 @@ const TemporaryPassword = ({ password, email }) => {
   return (
     <div
       role="status"
-      className="mt-6 rounded-xl border border-amber-300/40 bg-amber-300/10 p-5"
+      className="mt-6 rounded-xl border-2 border-amber-400 bg-[#172333] p-5 font-semibold shadow-xl"
     >
       <p className="text-sm font-semibold text-amber-200">Temporary password</p>
 
@@ -48,7 +48,7 @@ const TemporaryPassword = ({ password, email }) => {
         </button>
       </div>
 
-      <p className="mt-3 text-xs leading-relaxed text-amber-100/80">
+      <p className="mt-3 text-xs leading-relaxed text-amber-100">
         This password is shown only now. Give it to the hiker
         {email ? ` (${email})` : ""}: it must be changed at the first login.
       </p>
@@ -653,7 +653,7 @@ export const BookingFlow = ({
                       Loading time slots...
                     </div>
                   ) : fetchError ? (
-                    <p className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-300">
+                    <p className="rounded-xl border-2 border-red-400 bg-[#172333] p-4 text-sm font-semibold text-red-300 shadow-xl">
                       {fetchError}
                     </p>
                   ) : slots.length === 0 ? (
@@ -801,7 +801,7 @@ export const BookingFlow = ({
               {submitError && (
                 <div
                   role="alert"
-                  className="rounded-xl border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-300"
+                  className="rounded-xl border-2 border-red-400 bg-[#172333] p-4 text-sm font-semibold text-red-300 shadow-xl"
                 >
                   {submitError}
                 </div>
@@ -829,7 +829,7 @@ export const BookingFlow = ({
                 currentAvailability.available ? (
                   <div
                     role="status"
-                    className="flex items-start gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm"
+                    className="flex items-start gap-3 rounded-xl border-2 border-emerald-400 bg-[#172333] p-4 text-sm font-semibold shadow-xl"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -861,7 +861,7 @@ export const BookingFlow = ({
                 ) : (
                   <div
                     role="status"
-                    className="flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm"
+                    className="flex items-start gap-3 rounded-xl border-2 border-amber-400 bg-[#172333] p-4 text-sm font-semibold shadow-xl"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -946,7 +946,7 @@ export const BookingFlow = ({
                     {requirementError && (
                       <div
                         role="alert"
-                        className="mb-4 rounded-xl border border-red-400/25 bg-red-400/10 p-4 text-sm text-red-300"
+                        className="mb-4 rounded-xl border-2 border-red-400 bg-[#172333] p-4 text-sm font-semibold text-red-300 shadow-xl"
                       >
                         {requirementError}
                       </div>
