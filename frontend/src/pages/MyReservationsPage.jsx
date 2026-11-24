@@ -358,12 +358,12 @@ export const MyReservationsPage = () => {
                 </header>
 
                 {notice && (
-                    <p role="status" className="mb-5 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-emerald-200">
+                    <p role="status" className="mb-5 rounded-xl border-2 border-emerald-400 bg-[#172333] p-4 font-semibold text-emerald-200 shadow-xl">
                         {notice}
                     </p>
                 )}
                 {loadError && (
-                    <div role="alert" className="mb-5 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-200">
+                    <div role="alert" className="mb-5 rounded-xl border-2 border-red-400 bg-[#172333] p-4 font-semibold text-red-200 shadow-xl">
                         <p>{loadError}</p>
                         <button className="mt-3 underline" type="button" onClick={() => {
                             setIsLoading(true);
@@ -517,7 +517,7 @@ export const MyReservationsPage = () => {
                             {cancelError && (
                                 <p
                                     role="alert"
-                                    className="mb-5 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200"
+                                    className="mb-5 rounded-lg border-2 border-red-400 bg-[#172333] p-3 text-sm font-semibold text-red-200 shadow-xl"
                                 >
                                     {cancelError}
                                 </p>
@@ -613,7 +613,14 @@ export const MyReservationsPage = () => {
                                         </div>
                                     </div>
                                 </div>
-                                {slotsError && <p role="alert" className="text-sm text-red-300">{slotsError}</p>}
+                                {slotsError && (
+                                    <p
+                                        role="alert"
+                                        className="rounded-xl border-2 border-red-400 bg-[#172333] p-4 text-sm font-semibold text-red-300 shadow-xl"
+                                    >
+                                        {slotsError}
+                                    </p>
+                                )}
                                 {!slotsLoading && editDate && !slotsError && slots.length === 0 && (
                                     <p className="text-sm text-amber-200">No bookable time slots are available on this date.</p>
                                 )}
@@ -747,7 +754,7 @@ export const MyReservationsPage = () => {
                                     </div>
                                 </div>
 
-                                {formError && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{formError}</p>}
+                                {formError && <p role="alert" className="rounded-lg border-2 border-red-400 bg-[#172333] p-3 text-sm font-semibold text-red-200 shadow-xl">{formError}</p>}
 
                                 <div className="flex flex-col-reverse justify-end gap-3 border-t border-white/10 pt-5 sm:flex-row">
                                     <button type="button" className="btn border border-white/20 bg-white/10 text-white hover:border-white/40 hover:bg-white/20" onClick={closeEditor} disabled={isSaving}>

@@ -388,7 +388,7 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
             )}
 
             {showDeleteConfirmation && (
-                <div className="rounded-xl border border-red-400/30 bg-red-400/5 p-4">
+                <div className="rounded-xl border-2 border-red-400 bg-[#172333] p-4 font-semibold shadow-xl">
                     <div className="flex items-start gap-3">
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -441,13 +441,19 @@ const SlotMenuEditor = ({ slot, onMenuSaved, onMenuDeleted }) => {
             )}
 
             {error && (
-                <p role="alert" className="text-sm text-red-400">
+                <p
+                    role="alert"
+                    className="rounded-xl border-2 border-red-400 bg-[#172333] p-4 text-sm font-semibold text-red-400 shadow-xl"
+                >
                     {error}
                 </p>
             )}
 
             {success && (
-                <p role="status" className="text-sm text-emerald-300">
+                <p
+                    role="status"
+                    className="rounded-xl border-2 border-emerald-400 bg-[#172333] p-4 text-sm font-semibold text-emerald-300 shadow-xl"
+                >
                     {success}
                 </p>
             )}

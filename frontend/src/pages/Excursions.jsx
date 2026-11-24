@@ -95,7 +95,7 @@ export const ExcursionsPage = () => (
         {NOTES.map(({ text, icon }) => (
           <li
             key={text}
-            className="flex items-start gap-3 rounded-xl border border-amber-300/40 bg-amber-300/10 p-4 text-sm text-amber-100"
+            className="flex items-start gap-3 rounded-xl border-2 border-amber-400 bg-[#172333] p-4 text-sm font-semibold text-amber-100 shadow-xl"
           >
             {icon}
             <span>{text}</span>
