@@ -352,9 +352,9 @@ const createReservation = async (slotId, userId, partySize, requirements, byEmpl
             }
 
             const { lastID } = await dbRun(`
-                INSERT INTO users (name, email, phone, password_hash, salt, role, password_to_change)
-                VALUES (?, ?, ?, ?, ?, 'hiker', 1)
-            `, [newHiker.name, newHiker.email, newHiker.phone, newHiker.passwordHash, newHiker.salt], connection);
+                INSERT INTO users (name, email, phone, password_hash, salt, role, password_to_change, notes, emergency_contact)
+                VALUES (?, ?, ?, ?, ?, 'hiker', 1, ?, ?)
+            `, [newHiker.name, newHiker.email, newHiker.phone, newHiker.passwordHash, newHiker.salt, newHiker.userNotes, newHiker.emergencyContact], connection);
 
             hiker = { userId: lastID, name: newHiker.name, email: newHiker.email, phone: newHiker.phone };
         }

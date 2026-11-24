@@ -31,23 +31,38 @@ passport.serializeUser((user, callback) => callback(null, user));
 passport.deserializeUser((user, callback) => callback(null, user));
 
 
-// 1. POST /api/users --> Registrazione (tutti i campi obbligatori)
+// 1. POST /api/users --> Registrazione
 router.post("/api/users", async (req, res, next) => {
     try {
-        const { name, email, phone, password } = req.body ?? {};
+        const { name, email, phone, password, emergency_contact, notes } = req.body ?? {};
+
+        const emergencyContact = typeof emergency_contact === 'string'
+            ? emergency_contact.trim() || null
+            : null;
+
+        const userNotes = typeof notes === 'string'
+            ? notes.trim() || null
+            : null;
 
         // Every field is required: a missing, non-text or blank value (also only spaces) is refused
         const isFilled = value => typeof value === 'string' && value.trim().length > 0;
 
         if (![name, email, phone].every(isFilled) || typeof password !== 'string' || password.length === 0) {
-            return next(new BadRequestError("All fields (name, email, phone, password) are required."));
+            return next(new BadRequestError("All mandatory fields (name, email, phone, password) are required."));
         }
 
         if (password.length < 6) {
             return next(new BadRequestError("The password must contain at least 6 characters."));
         }
 
-        const result = await createUser(name.trim(), email.trim(), phone.trim(), password);
+        const result = await createUser(
+            name.trim(),
+            email.trim(),
+            phone.trim(),
+            password,
+            emergencyContact,
+            userNotes
+        );
 
         if (result.isDuplicate) {
             return next(new ConflictError("Email already in use"));
@@ -58,7 +73,9 @@ router.post("/api/users", async (req, res, next) => {
             name: result.name,
             email: result.email,
             phone: result.phone,
-            role: result.role
+            role: result.role,
+            emergency_contact: result?.emergency_contact,
+            notes: result?.notes
         };
 
         req.login(newUser, (err) => {

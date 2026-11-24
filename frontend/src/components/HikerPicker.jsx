@@ -37,6 +37,8 @@ export const HikerPicker = ({ onChange }) => {
     name: "",
     email: "",
     phone: "",
+    emergency_contact: "",
+    notes: ""
   });
 
   // Temporary hiker.
@@ -95,9 +97,11 @@ export const HikerPicker = ({ onChange }) => {
       const name = newHiker.name.trim();
       const email = newHiker.email.trim();
       const phone = newHiker.phone.trim();
+      const emergency_contact = newHiker.emergency_contact.trim() || null;
+      const notes = newHiker.notes.trim() || null;
 
       if (name && email && phone && EMAIL_PATTERN.test(email)) {
-        hiker = { name, email, phone };
+        hiker = { name, email, phone, notes, emergency_contact};
       }
     } else if (quickHiker.name.trim()) {
       const phone = quickHiker.phone.trim();
@@ -286,6 +290,41 @@ export const HikerPicker = ({ onChange }) => {
                 value={newHiker.phone}
                 onChange={(e) =>
                   setNewHiker({ ...newHiker, phone: e.target.value })
+                }
+                className={inputClass}
+              />
+            </div>
+
+
+            <div>
+              <label htmlFor="new-hiker-emergency-contact" className={labelClass}>
+                Emergency contact (optional)
+              </label>
+              <input
+                id="new-hiker-emergency-contact"
+                type="tel"
+                autoComplete="off"
+                value={newHiker.emergency_contact}
+                onChange={(e) =>
+                  setNewHiker({ ...newHiker, emergency_contact: e.target.value })
+                }
+                className={inputClass}
+              />
+            </div>
+
+
+
+            <div>
+              <label htmlFor="new-hiker-notes" className={labelClass}>
+                Notes (optional)
+              </label>
+              <input
+                id="new-hiker-notes"
+                type="text"
+                autoComplete="off"
+                value={newHiker.notes}
+                onChange={(e) =>
+                  setNewHiker({ ...newHiker, notes: e.target.value })
                 }
                 className={inputClass}
               />
