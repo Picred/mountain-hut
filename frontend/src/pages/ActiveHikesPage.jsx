@@ -97,8 +97,8 @@ export const ActiveHikesPage = () => {
                         <p className="text-2xl font-bold text-white">{hikes.length}</p>
                     </div>
 
-                    <div className="rounded-xl border border-red-400/25 bg-red-400/10 px-5 py-3">
-                        <p className="text-xs text-red-300">Overdue hikes</p>
+                    <div className="rounded-xl border-2 border-red-400 bg-[#172333] px-5 py-3 shadow-xl">
+                        <p className="text-xs font-semibold text-red-300">Overdue hikes</p>
                         <p className="text-2xl font-bold text-red-300">
                             {overdueCount}
                         </p>
@@ -118,7 +118,7 @@ export const ActiveHikesPage = () => {
             {error && (
                 <div
                     role="alert"
-                    className="mb-6 rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-red-300"
+                    className="mb-6 rounded-xl border-2 border-red-400 bg-[#172333] p-4 font-semibold text-red-300 shadow-xl"
                 >
                     {error}
                 </div>
@@ -198,7 +198,7 @@ export const ActiveHikesPage = () => {
 
                                     <div
                                         className={`rounded-xl border p-4 ${hike.isOverdue
-                                            ? "border-red-400/30 bg-red-400/10"
+                                            ? "border-2 border-red-400 bg-[#172333]"
                                             : "border-white/10 bg-white/5"
                                             }`}
                                     >

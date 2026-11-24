@@ -86,7 +86,7 @@ export default function LoginForm({ onLogin }) {
           {error && (
             <div
               role="alert"
-              className="flex min-w-0 items-start gap-3 rounded-xl border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm leading-relaxed text-red-300"
+              className="flex min-w-0 items-start gap-3 rounded-xl border-2 border-red-400 bg-[#172333] px-4 py-3 text-sm font-semibold leading-relaxed text-red-300 shadow-xl"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
 

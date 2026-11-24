@@ -160,11 +160,11 @@ export const App = () => {
           className="fixed left-1/2 top-24 z-[100] w-[calc(100%-2rem)] max-w-md -translate-x-1/2"
         >
           <div
-            className={`flex items-center gap-3 rounded-xl border px-5 py-4 text-sm font-medium shadow-xl ${message.type === "success"
-              ? "border-emerald-400/30 bg-[#132a27] text-emerald-300"
-              : message.type === "error"
-                ? "border-red-400/30 bg-[#301d25] text-red-300"
-                : "border-sky-300/30 bg-[#172333] text-sky-300"
+            className={`flex items-center gap-3 rounded-xl border-2 px-5 py-4 text-sm font-semibold shadow-xl ${message.type === "success"
+                ? "border-emerald-400 bg-[#172333] text-emerald-300"
+                : message.type === "error"
+                  ? "border-red-400 bg-[#172333] text-red-300"
+                  : "border-sky-300 bg-[#172333] text-sky-300"
               }`}
           >
             {message.type === "success" ? (

@@ -72,7 +72,7 @@ export const MealsPage = () => {
                                 Loading meals...
                             </div>
                         ) : error ? (
-                            <p role="alert" className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-300">
+                            <p role="alert" className="rounded-xl border-2 border-red-400 bg-[#172333] p-4 text-sm font-semibold text-red-300 shadow-xl">
                                 {error}
                             </p>
                         ) : meals.length === 0 ? (
