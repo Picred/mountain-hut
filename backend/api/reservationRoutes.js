@@ -14,8 +14,8 @@ const isText = value => typeof value === 'string' && value.trim().length > 0;
 /**
  * Reads the hiker an employee is booking for:
  * - { userId }: a registered hiker
- * - { name, email, phone }: a new hiker, registered with the reservation with a random
- *   password, that must be changed at the first login
+ * - { name, email, phone, emergency_contact, notes}: a new hiker, registered with the reservation with a random
+ *   password, that must be changed at the first login (emergency_contact and notes are optional fields)
  * - { name, phone? }: a temporary hiker, who cannot log in
  */
 const readHiker = async (hiker, employeeId) => {
@@ -31,7 +31,14 @@ const readHiker = async (hiker, employeeId) => {
     }
 
     if (hiker.email !== undefined) {
-        const { name, email, phone } = hiker;
+        const { name, email, phone, emergency_contact, notes } = hiker;
+        const emergencyContact = typeof emergency_contact === 'string'
+            ? emergency_contact.trim() || null
+            : null;
+
+        const userNotes = typeof notes === 'string'
+            ? notes.trim() || null
+            : null;
         if (![name, email, phone].every(isText)) {
             throw new BadRequestError('INVALID_INPUT');
         }
@@ -42,7 +49,7 @@ const readHiker = async (hiker, employeeId) => {
             temporaryPassword: password,
             byEmployee: {
                 employeeId,
-                newHiker: { name: name.trim(), email: email.trim(), phone: phone.trim(), salt, passwordHash }
+                newHiker: { name: name.trim(), email: email.trim(), phone: phone.trim(), salt, passwordHash, emergencyContact, userNotes }
             }
         };
     }

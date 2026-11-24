@@ -13,7 +13,9 @@ Response body:
   "name": "Mario Rossi",
   "email": "mario@example.com",
   "phone": "3331234567",
-  "role": "hiker"
+  "role": "hiker",
+  "emergency_contact": "3332221110",
+  "notes": "Mountain guide"
 }
 ```
 
@@ -21,14 +23,16 @@ Response body:
 `401 Unauthenticated` - "UNAUTHORIZEDd"
 
 ### POST `/api/users`
-Creates the account of a hiker, given his personal information
+Creates the account of a hiker, given his personal information ("emergency_contact" and "notes" are optional fields)
 Request body:
 ```json
 {
-   "named": "Mario Rossid",
-    "emaild": "mario@example.comd",
-    "phoned": "3331234567d",
-    "passwordd": "password123d"
+   "name": "Mario Rossi",
+    "email": "mario@example.com",
+    "phone": "3331234567",
+    "password": "password123",
+    "emergency_contact": "3332221110",
+    "notes": "Mountain guide"
 }
 ```
 
@@ -36,15 +40,17 @@ Request body:
 - Response body content: a json with user’s information
 ```json
 {
-   "user_idd": 6,
-    "named": "Mario Rossid",
-    "emaild": "mario@example.comd",
-    "phoned": "3331234567d"
+   "user_id": 6,
+    "name": "Mario Rossi",
+    "email": "mario@example.com",
+    "phone": "3331234567",
+    "emergency_contact": "3332221110",
+    "notes": "Mountain guide"
 }
 ```
 
 **ERRORS**
-`400 Bad request` - "All fields (name, email, phone, password) are required.d" / "The password must contain at least 6 characters."
+`400 Bad request` - "All mandatory fields (name, email, phone, password) are required" / "The password must contain at least 6 characters."
 `409 Conflict` - "Email already in used"
 
 ### POST `/api/sessions`
@@ -52,18 +58,20 @@ Logs a user into the site (the role depends from the type of account)
 - Request body:
 ```json
 {
-   "emaild": "mario@example.comd",
-  "passwordd": "password123d"
+   "email": "mario@example.com",
+  "password": "password123"
 }
 ```
 - Response: `201 Created`
 - Response body content: a json with user’s information
 ```json
 {
-   "user_idd": 6,
-    "named": "Mario Rossid",
-    "emaild": "mario@example.comd",
-    "phoned": "3331234567d"
+   "user_id": 6,
+    "name": "Mario Rossi",
+    "email": "mario@example.com",
+    "phone": "3331234567",
+    "emergency_contact": "3332221110",
+    "notes": "Mountain guide"
 }
 ```
 
