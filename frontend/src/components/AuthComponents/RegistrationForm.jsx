@@ -8,7 +8,9 @@ export default function RegisterForm({ onRegister }) {
     name: '',
     email: '',
     phone: '',
-    password: ''
+    password: '',
+    emergency_contact: '',
+    notes: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +30,9 @@ export default function RegisterForm({ onRegister }) {
         formData.name.trim(),
         formData.email.trim(),
         formData.phone.trim(),
-        formData.password
+        formData.password,
+        formData.emergency_contact.trim() || null,
+        formData.notes.trim() || null,
       );
     } catch (err) {
       setError(
@@ -105,6 +109,7 @@ export default function RegisterForm({ onRegister }) {
             />
           </div>
 
+
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-200">
               Password
@@ -117,6 +122,32 @@ export default function RegisterForm({ onRegister }) {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               required
               minLength={6}
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-200">
+              Emergency contact (optional)
+            </label>
+            <input
+              type="tel"
+              placeholder="333 1234567"
+              className="w-full rounded-xl border border-white/10 bg-[#172333] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-sky-300/60 focus:ring-1 focus:ring-sky-300/30"
+              value={formData.emergency_contact}
+              onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-200">
+              Notes (optional)
+            </label>
+            <input
+              type="text"
+              placeholder="Mountain guide"
+              className="w-full rounded-xl border border-white/10 bg-[#172333] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-sky-300/60 focus:ring-1 focus:ring-sky-300/30"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             />
           </div>
 
