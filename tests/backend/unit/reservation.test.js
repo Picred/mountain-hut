@@ -509,6 +509,8 @@ describe('reservationRoutes - employee booking for a hiker', () => {
         phone: '222',
         salt: expect.any(String),
         passwordHash: expect.any(String),
+        emergencyContact: null,
+        userNotes: null,
       },
     });
 
@@ -608,8 +610,8 @@ describe('makeReservation - employee booking: uncovered cases', () => {
 
     const insertUser = dbRun.mock.calls.find(([sql]) => sql.includes('INSERT INTO users'));
     expect(insertUser[0]).toMatch(/password_to_change/);
-    expect(insertUser[0]).toMatch(/'hiker',\s*1\s*\)/);
-    expect(insertUser[1]).toEqual(['Luigi Verdi', 'luigi@test.com', '222', 'hash', 'salt']);
+    expect(insertUser[0]).toMatch(/'hiker',\s*1\s*,/);
+    expect(insertUser[1]).toEqual(['Luigi Verdi', 'luigi@test.com', '222', 'hash', 'salt', undefined, undefined]);
   });
 
   it("rejects with ConflictError('ALREADY_BOOKED') when the registered hiker already booked the slot", async () => {

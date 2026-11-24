@@ -554,3 +554,25 @@ describe('POST /api/reservations', () => {
   });
 
 });
+
+describe('POST /api/reservations - new hiker optional fields', () => {
+  it('saves the emergency contact and the notes of a new hiker registered by an employee', async () => {
+    const cookie = await loginAs(EMPLOYEE);
+
+    const res = await book(cookie, {
+      slotId: 4,
+      partySize: 2,
+      hiker: {
+        name: 'New Hiker',
+        email: 'new-hiker@mountainhut.test',
+        phone: '0123456789',
+        emergency_contact: '  Maria Bianchi, 3331112222 ',
+        notes: ' Mountain guide ',
+      },
+    });
+
+    expect(res.status).toBe(201);
+    const saved = db.prepare('SELECT emergency_contact, notes FROM users WHERE user_id = ?').get(res.body.hiker.userId);
+    expect({ ...saved }).toEqual({ emergency_contact: 'Maria Bianchi, 3331112222', notes: 'Mountain guide' });
+  });
+});

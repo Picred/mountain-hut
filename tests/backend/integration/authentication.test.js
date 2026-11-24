@@ -13,7 +13,10 @@ const PORT = 3102;
 const BASE_URL = `http://localhost:${PORT}`;
 
 // Demo user (password "password")
-const ANNA = { user_id: 3, name: 'Anna Winden', email: 'anna@mountainhut.test', phone: '+393401234567', role: 'hiker' };
+const ANNA = {
+  user_id: 3, name: 'Anna Winden', email: 'anna@mountainhut.test', phone: '+393401234567', role: 'hiker',
+  emergency_contact: 'Peter Winden (brother), +39 340 7654321', notes: 'Registered mountain guide'
+};
 const NEW_USER = { name: 'Mario Rossi', email: 'mario@example.com', phone: '3331234567', password: 'secret1' };
 
 let tmpDir;
@@ -93,6 +96,8 @@ describe('POST /api/users', () => {
       email: 'mario@example.com',
       phone: '3331234567',
       role: 'hiker',
+      emergency_contact: null,
+      notes: null,
     });
     const saved = db.prepare('SELECT password_hash FROM users WHERE email = ?').get(NEW_USER.email);
     expect(saved.password_hash).not.toBe(NEW_USER.password);
@@ -122,7 +127,7 @@ describe('POST /api/sessions', () => {
 
     expect(res.status).toBe(201);
     const body = res.body;
-    expect(body).toEqual({...ANNA, passwordToChange: false});
+    expect(body).toEqual({ ...ANNA, passwordToChange: false });
     expect(await currentUser(res.cookie)).toMatchObject({ status: 200, body: body });
   });
 
@@ -251,5 +256,23 @@ describe('PUT /api/users/password', () => {
     expect(res.status).toBe(200);
     expect(savedUser().password_to_change).toBe(0);
     expect((await login(NEW_USER.email, 'new-secret')).status).toBe(201);
+  });
+  
+});
+
+describe('POST /api/users - optional fields', () => {
+  it('saves the trimmed emergency contact, turns blank notes into null and keeps them after a new login', async () => {
+    const res = await request('POST', '/api/users', {
+      body: { ...NEW_USER, emergency_contact: '  Luigi Rossi, 3330000000  ', notes: '   ' },
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ emergency_contact: 'Luigi Rossi, 3330000000', notes: null });
+
+    const saved = db.prepare('SELECT emergency_contact, notes FROM users WHERE email = ?').get(NEW_USER.email);
+    expect({ ...saved }).toEqual({ emergency_contact: 'Luigi Rossi, 3330000000', notes: null });
+
+    const relogin = await login(NEW_USER.email, NEW_USER.password);
+    expect(relogin.body).toMatchObject({ emergency_contact: 'Luigi Rossi, 3330000000', notes: null });
   });
 });

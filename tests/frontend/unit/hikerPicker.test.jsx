@@ -145,7 +145,9 @@ describe('HikerPicker component', () => {
             expect(onChange).toHaveBeenLastCalledWith({
                 name: 'Luigi Verde',
                 email: 'luigi@example.com',
-                phone: '+39333999888'
+                phone: '+39333999888',
+                emergency_contact: null, 
+                notes: null
             });
         });
     });
