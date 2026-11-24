@@ -776,19 +776,38 @@ export const BookingFlow = ({
                       </button>
 
                       <span className="min-w-6 text-center text-lg font-semibold text-white">
-                        {partySize}
+                        <input
+                          type="number"
+                          id="party-size"
+                          min={1}
+                          max={500}
+                          value={partySize}
+                          onChange={(e) => {
+                            const rawValue = Number(e.target.value);
+                            const clampedValue = Math.min(500, Math.max(1, rawValue));
+
+                            setPartySize(clampedValue);
+                            setAvailability(null);
+                            setSubmitError(null);
+                            resetRequirements();
+                          }}
+                          className="w-12 bg-transparent text-center text-lg font-semibold text-white focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
                       </span>
 
                       <button
                         type="button"
                         onClick={() => {
+                          if (partySize >= 500) return;
+
                           setPartySize((current) => current + 1);
                           setAvailability(null);
                           setSubmitError(null);
                           resetRequirements();
                         }}
+                        disabled={partySize >= 500}
                         aria-label="Add one guest"
-                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/15 text-xl text-sky-300 transition-colors hover:bg-white/10"
+                        className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-white/15 text-xl text-sky-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         +
                       </button>
