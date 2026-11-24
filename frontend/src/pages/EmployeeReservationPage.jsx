@@ -29,7 +29,7 @@ export const EmployeeReservationPage = () => {
       topSection={<HikerPicker onChange={setHiker} />}
       firstStep={2}
       canReserve={hiker !== null}
-      reserveHint="Select or enter the hiker first."
+      reserveHint="Make sure to fill out all required fields before reserving."
       onReserve={({ slotId, partySize, requirements }) =>
         createReservationForHiker(slotId, partySize, requirements, hiker)
       }

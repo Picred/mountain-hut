@@ -1063,7 +1063,7 @@ export const BookingFlow = ({
                 loggedIn ? (
                   <>
                   {!canReserve && reserveHint && (
-                    <p className="text-center text-sm text-amber-300">
+                    <p className="text-center text-sm text-amber-300 rounded-xl border-2 border-amber-400 bg-[#172333] p-4 text-sm font-semibold shadow-xl">
                       {reserveHint}
                     </p>
                   )}
