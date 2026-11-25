@@ -4,17 +4,17 @@ import { sendEmail } from './emailService.js';
 export const formatBookingReference = (reservationId) => `#${reservationId}`
 
 // dates and times use the timezone of the server, not a fixed timezone
-const formatDate = (isoDate) =>
+export const formatDate = (isoDate) =>
     new Date(isoDate).toLocaleDateString('en-GB', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
 
-const formatTime = (isoDate) =>
+export const formatTime = (isoDate) =>
     new Date(isoDate).toLocaleTimeString('en-GB', {
         hour: '2-digit', minute: '2-digit', hour12: false
     });
 
-const plural = (n, singular, pluralForm) => (n === 1 ? singular : pluralForm);
+export const plural = (n, singular, pluralForm) => (n === 1 ? singular : pluralForm);
 
 const formatRequirements = (requirements) => {
     if (requirements.length === 0) return 'None';
@@ -34,6 +34,14 @@ export const escapeHtml = (value) =>
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+
+// rows of the table with the details of an email: details is a list of [label, value]
+export const detailsRowsHtml = (details) =>
+    details
+        .map(([label, value]) =>
+            `<tr><td style="padding:4px 16px 4px 0;color:#555">${escapeHtml(label)}</td>` +
+            `<td style="padding:4px 0"><strong>${escapeHtml(value)}</strong></td></tr>`)
+        .join('\n');
 
 // email subject and body
 export const buildBookingEmail = (booking) => {
@@ -57,11 +65,7 @@ export const buildBookingEmail = (booking) => {
         'See you soon!'
     ].join('\n');
 
-    const rows = details
-        .map(([label, value]) =>
-            `<tr><td style="padding:4px 16px 4px 0;color:#555">${escapeHtml(label)}</td>` +
-            `<td style="padding:4px 0"><strong>${escapeHtml(value)}</strong></td></tr>`)
-        .join('\n');
+    const rows = detailsRowsHtml(details);
 
     const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222">
 <p>Hello ${escapeHtml(booking.hikerName)},</p>
@@ -101,11 +105,7 @@ export const buildChangesEmail = (booking) => {
         'See you soon!'
     ].join('\n');
 
-    const rows = details
-        .map(([label, value]) =>
-            `<tr><td style="padding:4px 16px 4px 0;color:#555">${escapeHtml(label)}</td>` +
-            `<td style="padding:4px 0"><strong>${escapeHtml(value)}</strong></td></tr>`)
-        .join('\n');
+    const rows = detailsRowsHtml(details);
 
     const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222">
 <p>Hello ${escapeHtml(booking.hikerName)},</p>
@@ -141,11 +141,7 @@ export const buildCancellationEmail = (booking) => {
         'We hope to see you again soon!'
     ].join('\n');
 
-    const rows = details
-        .map(([label, value]) =>
-            `<tr><td style="padding:4px 16px 4px 0;color:#555">${escapeHtml(label)}</td>` +
-            `<td style="padding:4px 0"><strong>${escapeHtml(value)}</strong></td></tr>`)
-        .join('\n');
+    const rows = detailsRowsHtml(details);
 
     const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222">
 <p>Hello ${escapeHtml(booking.hikerName)},</p>
