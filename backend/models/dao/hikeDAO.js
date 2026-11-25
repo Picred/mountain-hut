@@ -101,37 +101,33 @@ export const createHike = async (userId, hike) => {
     }
 };
 
-export const getActiveHikes = async () => {
-    const nowIso = new Date().toISOString();
 
-    const hikeRows = await dbAll(`
-        SELECT
-            h.hike_id AS hikeId,
-            h.destination,
-            h.route,
-            h.scheduled_departure AS scheduledDeparture,
-            h.expected_arrival AS expectedArrival,
-            h.party_size AS partySize,
-            h.status,
-            h.created_at AS createdAt,
-            u.user_id AS userId,
-            u.name AS hikerName,
-            u.email AS hikerEmail,
-            u.phone AS hikerPhone,
-            u.notes AS hikerNotes,
-            u.emergency_contact AS hikerEmergencyContact
-        FROM hikes h
-        JOIN users u ON u.user_id = h.user_id
-        WHERE h.status = 'scheduled'
-          AND h.scheduled_departure <= ?
-        ORDER BY h.expected_arrival ASC
-    `, [nowIso]);
+// Columns of a hike and of its hiker, in the format read by buildHikes
+const HIKE_COLUMNS = `
+    h.hike_id AS hikeId,
+    h.destination,
+    h.route,
+    h.scheduled_departure AS scheduledDeparture,
+    h.expected_arrival AS expectedArrival,
+    h.party_size AS partySize,
+    h.status,
+    h.created_at AS createdAt,
+    u.user_id AS userId,
+    u.name AS hikerName,
+    u.email AS hikerEmail,
+    u.phone AS hikerPhone,
+    u.notes AS hikerNotes,
+    u.emergency_contact AS hikerEmergencyContact
+`;
 
-    if (hikeRows.length === 0) {
-        return [];
+// Passage points of the given hikes, in the order of the route: Map hikeId -> [name]
+const getPassagesByHikeId = async (hikeIds) => {
+    const passagesByHikeId = new Map();
+
+    if (hikeIds.length === 0) {
+        return passagesByHikeId;
     }
 
-    const hikeIds = hikeRows.map(row => row.hikeId);
     const placeholders = hikeIds.map(() => '?').join(', ');
 
     const passageRows = await dbAll(`
@@ -141,7 +137,6 @@ export const getActiveHikes = async () => {
         ORDER BY hike_id ASC, position ASC
     `, hikeIds);
 
-    const passagesByHikeId = new Map();
     for (const passage of passageRows) {
         if (!passagesByHikeId.has(passage.hikeId)) {
             passagesByHikeId.set(passage.hikeId, []);
@@ -149,7 +144,12 @@ export const getActiveHikes = async () => {
         passagesByHikeId.get(passage.hikeId).push(passage.name);
     }
 
-    const nowMs = Date.parse(nowIso);
+    return passagesByHikeId;
+};
+
+// Hikes with their hiker and passage points, from rows selected with HIKE_COLUMNS
+const buildHikes = async (hikeRows, nowMs) => {
+    const passagesByHikeId = await getPassagesByHikeId(hikeRows.map(row => row.hikeId));
 
     return hikeRows.map(row => ({
         hikeId: row.hikeId,
@@ -171,6 +171,21 @@ export const getActiveHikes = async () => {
             emergencyContact: row.hikerEmergencyContact ?? null
         }
     }));
+};
+
+export const getActiveHikes = async () => {
+    const nowIso = new Date().toISOString();
+
+    const hikeRows = await dbAll(`
+        SELECT ${HIKE_COLUMNS}
+        FROM hikes h
+        JOIN users u ON u.user_id = h.user_id
+        WHERE h.status = 'scheduled'
+          AND h.scheduled_departure <= ?
+        ORDER BY h.expected_arrival ASC
+    `, [nowIso]);
+
+    return buildHikes(hikeRows, Date.parse(nowIso));
 };
 
 
@@ -222,29 +237,7 @@ export const getHikersHikes = async (userId) => {
         ORDER BY scheduled_departure ASC
     `, [userId]);
 
-    if (hikeRows.length === 0) {
-        return [];
-    }
-
-    const hikeIds = hikeRows.map(row => row.hikeId);
-    const placeholders = hikeIds.map(() => '?').join(', ');
-
-    const passageRows = await dbAll(`
-        SELECT hike_id AS hikeId, name
-        FROM hike_passages
-        WHERE hike_id IN (${placeholders})
-        ORDER BY hike_id ASC, position ASC
-    `, hikeIds);
-
-    const passagesByHikeId = new Map();
-
-    for (const passage of passageRows) {
-        if (!passagesByHikeId.has(passage.hikeId)) {
-            passagesByHikeId.set(passage.hikeId, []);
-        }
-
-        passagesByHikeId.get(passage.hikeId).push(passage.name);
-    }
+    const passagesByHikeId = await getPassagesByHikeId(hikeRows.map(row => row.hikeId));
 
     return hikeRows.map(row => ({
         hikeId: row.hikeId,
@@ -257,4 +250,83 @@ export const getHikersHikes = async (userId) => {
         status: row.status,
         createdAt: row.createdAt
     }));
+};
+
+
+// Alerts for the hikers who have not recorded the end of the hike (see utils/missingHikeRules.js)
+
+// Scheduled hikes whose expected return time is not after the given instant (ISO 8601, UTC)
+export const getOverdueScheduledHikes = async (cutoffIso) => {
+    return dbAll(`
+        SELECT hike_id AS hikeId, expected_arrival AS expectedArrival
+        FROM hikes
+        WHERE status = 'scheduled'
+          AND expected_arrival <= ?
+    `, [cutoffIso]);
+};
+
+/**
+ * Saves an alert of a hike. Returns false if that alert was already saved, so an alert
+ * is never created twice, not even if the check runs again.
+ */
+export const createHikeAlert = async (hikeId, alertNumber, createdAtIso) => {
+    const result = await dbRun(`
+        INSERT OR IGNORE INTO hike_alerts (hike_id, alert_number, created_at)
+        VALUES (?, ?, ?)
+    `, [hikeId, alertNumber, createdAtIso]);
+
+    return result.changes === 1;
+};
+
+export const markAlertEmailSent = async (hikeId, alertNumber, sentAtIso) => {
+    await dbRun(`
+        UPDATE hike_alerts
+        SET email_sent_at = ?
+        WHERE hike_id = ? AND alert_number = ?
+    `, [sentAtIso, hikeId, alertNumber]);
+};
+
+// Scheduled hikes with their last alert (alertNumber, lastAlertAt), the oldest return first
+const getHikesWithLastAlert = async ({ onlyEmailToSend = false } = {}) => {
+    const hikeRows = await dbAll(`
+        SELECT
+            ${HIKE_COLUMNS},
+            a.alert_number AS alertNumber,
+            a.created_at AS lastAlertAt
+        FROM hike_alerts a
+        JOIN hikes h ON h.hike_id = a.hike_id
+        JOIN users u ON u.user_id = h.user_id
+        WHERE h.status = 'scheduled'
+          AND a.alert_number = (
+              SELECT MAX(alert_number) FROM hike_alerts WHERE hike_id = a.hike_id
+          )
+          ${onlyEmailToSend ? 'AND a.email_sent_at IS NULL' : ''}
+        ORDER BY h.expected_arrival ASC
+    `);
+
+    const hikes = await buildHikes(hikeRows, Date.now());
+
+    return hikes.map((hike, index) => ({
+        ...hike,
+        alertNumber: hikeRows[index].alertNumber,
+        lastAlertAt: hikeRows[index].lastAlertAt
+    }));
+};
+
+// Hikers considered missing: not back yet and with at least one alert
+export const getMissingHikes = () => getHikesWithLastAlert();
+
+// Hikes whose last alert has not been emailed yet (the email is tried again until it is sent)
+export const getHikesWithEmailToSend = () => getHikesWithLastAlert({ onlyEmailToSend: true });
+
+// Emails of the wardens, who receive the alerts
+export const getWardenEmails = async () => {
+    const rows = await dbAll(`
+        SELECT email
+        FROM users
+        WHERE role = 'warden'
+        ORDER BY user_id ASC
+    `);
+
+    return rows.map(row => row.email);
 };

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import ensureRole from '../middlewares/role-middleware.js';
-import { registerHike, listActiveHikes, confirmArrival, listHikersHikes} from '../services/hikeService.js';
+import { registerHike, listActiveHikes, listMissingHikes, confirmArrival, listHikersHikes} from '../services/hikeService.js';
 
 const router = Router();
 
@@ -12,6 +12,18 @@ const router = Router();
  */
 router.get('/active', ensureRole('employee'), async (req, res) => {
     const hikes = await listActiveHikes();
+
+    return res.status(200).json(hikes);
+});
+
+/**
+ * GET /api/hikes/missing
+ *
+ * Allows an employee to see the hikers considered missing (not back 2 hours after the expected
+ * return time), with the number of the last alert sent. The web application asks for it to show the pop-up.
+ */
+router.get('/missing', ensureRole('employee'), async (req, res) => {
+    const hikes = await listMissingHikes();
 
     return res.status(200).json(hikes);
 });
