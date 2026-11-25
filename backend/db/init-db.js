@@ -10,13 +10,12 @@ const DB_PATH = process.env.DB_PATH ?? path.join(__dirname, 'db.sqlite');
 
 // Dates in UTC, format ISO 8601
 const DAY_MS = 24 * 60 * 60 * 1000;
-const TODAY = new Date();
-TODAY.setUTCHours(0, 0, 0, 0);
+const now = new Date();
+const TODAY = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
 const at = (dayOffset, hour, minute = 0) =>
   new Date(TODAY.getTime() + dayOffset * DAY_MS + (hour * 60 + minute) * 60000).toISOString();
 const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
-const hoursFromNow = h => hoursAgo(-h);
 
 const DEMO_PASSWORD = 'password';
 
@@ -259,6 +258,17 @@ CREATE TABLE hike_passages (
   position INTEGER NOT NULL CHECK (position > 0),
   name     TEXT    NOT NULL,
   PRIMARY KEY (hike_id, position)
+);
+
+-- alerts for a hiker who has not recorded the end of the hike: one row for each alert number
+-- (the number of alerts and the delays are in utils/missingHikeRules.js)
+CREATE TABLE hike_alerts (
+  hike_id       INTEGER NOT NULL REFERENCES hikes (hike_id) ON DELETE CASCADE,
+  alert_number  INTEGER NOT NULL CHECK (alert_number > 0),
+  created_at    TEXT    NOT NULL,
+  -- NULL until the email to the warden has been sent
+  email_sent_at TEXT,
+  PRIMARY KEY (hike_id, alert_number)
 );
 `;
 

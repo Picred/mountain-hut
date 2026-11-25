@@ -15,6 +15,8 @@ export const parseId = value => (/^\d+$/.test(value) ? Number(value) : NaN);
 
 export const isPositiveInt = value => Number.isInteger(value) && value > 0;
 
+export const isPositiveNumber = value => typeof value === 'number' && Number.isFinite(value) && value > 0;
+
 const ISO_DATE_TIME_REGEX =
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 

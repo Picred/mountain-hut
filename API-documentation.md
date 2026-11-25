@@ -1,6 +1,6 @@
 # mountain-hut APIs
 
-## Authentication
+## Authentication - Sessions
 
 ### GET `/api/sessions/current`
 Gets the info of the user currently logged
@@ -19,6 +19,40 @@ Response body:
 
 **ERRORS**
 `401 Unauthenticated` - "UNAUTHORIZEDd"
+
+### POST `/api/sessions`
+Logs a user into the site (the role depends from the type of account)
+- Request body:
+```json
+{
+   "emaild": "mario@example.comd",
+  "passwordd": "password123d"
+}
+```
+- Response: `201 Created`
+- Response body content: a json with user’s information
+```json
+{
+   "user_idd": 6,
+    "named": "Mario Rossid",
+    "emaild": "mario@example.comd",
+    "phoned": "3331234567d"
+}
+```
+
+**ERRORS**
+`401 Unauthenticated` - "Invalid credentialsd"
+
+### DELETE `/api/sessions/current`
+Deletes the active session
+- Request body: empty
+- Response: `204 No content`
+- Response body: empty
+
+- **ERRORS**
+`401 Unauthenticated` - "UNAUTHORIZEDd"
+
+## Authentication - Users
 
 ### POST `/api/users`
 Creates the account of a hiker, given his personal information
@@ -47,28 +81,6 @@ Request body:
 `400 Bad request` - "All fields (name, email, phone, password) are required.d" / "The password must contain at least 6 characters."
 `409 Conflict` - "Email already in used"
 
-### POST `/api/sessions`
-Logs a user into the site (the role depends from the type of account)
-- Request body:
-```json
-{
-   "emaild": "mario@example.comd",
-  "passwordd": "password123d"
-}
-```
-- Response: `201 Created`
-- Response body content: a json with user’s information
-```json
-{
-   "user_idd": 6,
-    "named": "Mario Rossid",
-    "emaild": "mario@example.comd",
-    "phoned": "3331234567d"
-}
-```
-
-**ERRORS**
-`401 Unauthenticated` - "Invalid credentialsd"
 
 ### POST `/api/users/password-reset`
 Starts the password recovery: sends an email with a link to choose a new password.
@@ -131,14 +143,6 @@ Changes the password of the logged user. It is used to replace the temporary pas
   - `400 Bad Request` — "The password must contain at least 6 characters." (missing, not a string, or too short)
   - `401 Unauthorized` — `UNAUTHORIZED` (no active session, or the user no longer exists)
 
-### DELETE `/api/sessions/current`
-Deletes the active session
-- Request body: empty
-- Response: `204 No content`
-- Response body: empty
-
-- **ERRORS**
-`401 Unauthenticated` - "UNAUTHORIZEDd"
 
 
 ## Slots
@@ -623,3 +627,151 @@ The menu of a slot is a free text with basic Markdown formatting, stored as it i
 
 The menu is returned in `GET /api/slots/capacity`, it is `null` if not defined. `POST /api/slots/copy-week` copies the menus too when `copyMenu` is `true` (default).
 
+
+## Hikes
+
+##### GET `/api/hikes/active`
+
+Retrieves all hikers currently registered as being on a hike, including overdue hikes, ordered by expected arrival time ascending. Completed (`returned`) and `cancelled` hikes are excluded.
+
+- **Authentication:** required (role `employee`).
+- **Response:** `200 OK` — an array of active hikes ordered by `expectedArrival` ascending (empty if none), each containing:
+  - `hikeId`
+  - `destination`
+  - `route`
+  - `passages` (array of intermediate passage point names in route order, empty if none)
+  - `scheduledDeparture` (ISO 8601, UTC)
+  - `expectedArrival` (ISO 8601, UTC)
+  - `partySize`
+  - `status` (`scheduled`)
+  - `createdAt` (ISO 8601, UTC)
+  - `isOverdue` (boolean, `true` if `expectedArrival` is in the past)
+  - `hiker` (an object containing `userId`, `name`, `email`, `phone`, `notes`, `emergencyContact`; `notes` and `emergencyContact` are `null` if not defined)
+
+```json
+[
+  {
+    "hikeId": 4,
+    "destination": "Viso Mozzo",
+    "route": "Ridge route, return through the Vallanta valley",
+    "passages": [
+      "Vallanta pass"
+    ],
+    "scheduledDeparture": "2026-11-18T08:00:00.000Z",
+    "expectedArrival": "2026-11-18T15:00:00.000Z",
+    "partySize": 1,
+    "status": "scheduled",
+    "createdAt": "2026-11-18T07:45:00.000Z",
+    "isOverdue": true,
+    "hiker": {
+      "userId": 5,
+      "name": "Edward Coles",
+      "email": "edward@mountainhut.test",
+      "phone": "+393451234567",
+      "notes": null,
+      "emergencyContact": null
+    }
+  },
+]
+```
+* **Errors:**
+* `401 Unauthorized` — `UNAUTHORIZED`
+* `401 Forbidden` — `FORBIDDEN` (the authenticated user is not an employee)
+
+
+### GET `/api/hikes/missing`
+Lists the hikers considered missing: hikes still `scheduled` for which at least one alert has been raised. It feeds the pop-up shown to employees and wardens.
+Hikers are considered missing after 2 hours has passed from the scheduled arrival time.
+Every hour an alert and an email must be sent up until 6 hours after the scheduled arrival time. The alert is independent from the email. If the server goes down only the last alert is sent.
+Everything is managed by a background job.
+
+- **Authentication:** required, role `employee` (the warden can use it too).
+- **Request body / query:** none.
+
+- **Response:** `200 OK` — array of hikes ordered by expected return time (empty array if nobody is missing). Each element has the same fields as `GET /api/hikes/active`, plus:
+  - `alertNumber`: number of the last alert raised for the hike (1 to `totalAlerts`)
+  - `lastAlertAt`: ISO date of the last alert
+  - `totalAlerts`: total number of alerts (5)
+```json
+[
+  {
+    "hikeId": 4,
+    "destination": "Viso Mozzo",
+    "route": "Ridge route, return through the Vallanta valley",
+    "passages": ["Vallanta pass"],
+    "scheduledDeparture": "2026-11-24T13:40:47.185Z",
+    "expectedArrival": "2026-11-24T20:40:47.185Z",
+    "partySize": 1,
+    "status": "scheduled",
+    "createdAt": "2026-11-24T22:40:47.515Z",
+    "isOverdue": true,
+    "hiker": {
+      "userId": 5,
+      "name": "Edward Coles",
+      "email": "edward@mountainhut.test",
+      "phone": "+393451234567",
+      "notes": null,
+      "emergencyContact": null
+    },
+    "alertNumber": 1,
+    "lastAlertAt": "2026-11-24T22:40:47.670Z",
+    "totalAlerts": 5
+  }
+]
+```
+
+- **Errors:**
+  - `401 Unauthorized` — not logged in
+  - `403 Forbidden` — the user is not an employee or a warden
+
+
+##### POST `/api/hikes`
+
+Registers a planned hike for the authenticated hiker.
+
+- **Authentication:** required (role `hiker`).
+- **Request body:** `scheduledDeparture` and `expectedArrival` must be valid ISO 8601 date-times with an explicit timezone. They are normalized to UTC. `partySize` must be a positive integer. `passages` is an optional array of non-empty strings, stored in the specified order (default `[]`). The scheduled departure must be in the future, and the expected arrival must be after departure.
+
+```json
+{
+  "destination": "Monte Viso",
+  "route": "Pian del Re - Colle delle Traversette - Monte Viso",
+  "scheduledDeparture": "2026-11-26T08:00:00Z",
+  "expectedArrival": "2026-11-26T17:00:00Z",
+  "partySize": 3,
+  "passages": [
+    "Pian del Re",
+    "Colle delle Traversette",
+    "Rifugio Quintino Sella"
+  ]
+}
+```
+
+- **Response:** `201 Created` - the newly registered hike, with its generated ID, the authenticated hiker's ID, normalized dates, and initial status `scheduled`.
+
+```json
+{
+  "hikeId": 7,
+  "userId": 3,
+  "destination": "Monte Viso",
+  "route": "Pian del Re - Colle delle Traversette - Monte Viso",
+  "scheduledDeparture": "2026-11-26T08:00:00.000Z",
+  "expectedArrival": "2026-11-26T17:00:00.000Z",
+  "partySize": 3,
+  "passages": [
+    "Pian del Re",
+    "Colle delle Traversette",
+    "Rifugio Quintino Sella"
+  ],
+  "status": "scheduled"
+}
+```
+
+- **Errors:**
+  - `400 Bad Request` - `INVALID_INPUT` (missing or invalid fields, non-positive party size, or invalid passages).
+  - `400 Bad Request` - `INVALID_DATE` (invalid date-time format or value).
+  - `400 Bad Request` - `INVALID_TIME_RANGE` (expected arrival is not after scheduled departure).
+  - `400 Bad Request` - `DEPARTURE_IN_THE_PAST` (scheduled departure is in the past).
+  - `401 Unauthorized` - `UNAUTHORIZED`.
+  - `403 Forbidden` - `FORBIDDEN` (the authenticated user is not a hiker).
+  - `409 Conflict` - `HIKE_TIME_CONFLICT` (the hiker already has a `scheduled` hike overlapping the requested time interval).
