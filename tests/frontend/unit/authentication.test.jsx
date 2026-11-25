@@ -194,6 +194,24 @@ describe('LoginForm', () => {
 
     expect(navigate).toHaveBeenCalledWith('/');
   });
+
+  it('shows and hides the typed password without submitting the form', async () => {
+    const user = userEvent.setup();
+    const onLogin = vi.fn();
+    renderForm(<LoginForm onLogin={onLogin} />);
+
+    await fillForm(user);
+    const password = screen.getByPlaceholderText('••••••••');
+    expect(password).toHaveAttribute('type', 'password');
+
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password).toHaveAttribute('type', 'text');
+    expect(password).toHaveValue('secret1');
+
+    await user.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password).toHaveAttribute('type', 'password');
+    expect(onLogin).not.toHaveBeenCalled();
+  });
 });
 
 describe('RegisterForm', () => {
