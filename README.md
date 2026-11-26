@@ -96,6 +96,7 @@ We chose AGPL v3 because we want this software to stay open for good, even when 
 - `reservations` contains reservation_id, slot_id, user_id, guest_name (text), guest_phone (text), created_by (user_id), party_size (number), status (text), created_at (text)
 - `reservation_table` contains reservation_id, slot_table_id, allocated_seats (number)
 - `reservation_requirements` contains id, reservation_id, people_count (number), description (text), is_allergy (boolean)
+- `hike_members` contains hike_id, position (number), name (text), phone (text, nullable): the other people of the party of a hike (party_size - 1), the hiker who registered the hike is the point of contact
 
 ## Email confirmation format
 

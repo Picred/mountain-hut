@@ -3,6 +3,14 @@ import BadRequestError from '../models/errors/BadRequestError.js';
 import { isNonEmptyString, isPositiveInt, isValidIsoDateTime } from '../utils/validator.js';
 import { MAX_ALERTS } from '../utils/missingHikeRules.js';
 
+// A party member: { name, phone? }, with a non-empty name and, if given, a non-empty phone
+const isValidMember = (member) =>
+    member !== null &&
+    typeof member === 'object' &&
+    !Array.isArray(member) &&
+    isNonEmptyString(member.name) &&
+    (member.phone == null || isNonEmptyString(member.phone));
+
 export const registerHike = async (userId, data) => {
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
         throw new BadRequestError('INVALID_INPUT');
@@ -14,7 +22,8 @@ export const registerHike = async (userId, data) => {
         scheduledDeparture,
         expectedArrival,
         partySize,
-        passages = []
+        passages = [],
+        members = []
     } = data;
 
     if (
@@ -52,13 +61,26 @@ export const registerHike = async (userId, data) => {
         throw new BadRequestError('INVALID_INPUT');
     }
 
+    // the other people of the party, all mandatory: the hiker who registers the hike is the point of contact
+    if (!Array.isArray(members) || members.some(member => !isValidMember(member))) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    if (members.length !== partySize - 1) {
+        throw new BadRequestError('PARTY_SIZE_MISMATCH');
+    }
+
     return await createHike(userId, {
         destination: destination.trim(),
         route: route.trim(),
         scheduledDeparture: new Date(departureTime).toISOString(),
         expectedArrival: new Date(arrivalTime).toISOString(),
         partySize,
-        passages: passages.map(passage => passage.trim())
+        passages: passages.map(passage => passage.trim()),
+        members: members.map(member => ({
+            name: member.name.trim(),
+            phone: member.phone == null ? null : member.phone.trim()
+        }))
     });
 };
 

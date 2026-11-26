@@ -68,6 +68,23 @@ export const createHike = async (userId, hike) => {
             ], connection);
         }
 
+        for (const [index, member] of hike.members.entries()) {
+            await dbRun(`
+                INSERT INTO hike_members (
+                    hike_id,
+                    position,
+                    name,
+                    phone
+                )
+                VALUES (?, ?, ?, ?)
+            `, [
+                hikeId,
+                index + 1,
+                member.name,
+                member.phone
+            ], connection);
+        }
+
         await dbRun('COMMIT', [], connection);
         transactionStarted = false;
 
@@ -147,9 +164,38 @@ const getPassagesByHikeId = async (hikeIds) => {
     return passagesByHikeId;
 };
 
-// Hikes with their hiker and passage points, from rows selected with HIKE_COLUMNS
+// Party members of the given hikes, in the order they were given: Map hikeId -> [{ name, phone }]
+const getMembersByHikeId = async (hikeIds) => {
+    const membersByHikeId = new Map();
+
+    if (hikeIds.length === 0) {
+        return membersByHikeId;
+    }
+
+    const placeholders = hikeIds.map(() => '?').join(', ');
+
+    const memberRows = await dbAll(`
+        SELECT hike_id AS hikeId, name, phone
+        FROM hike_members
+        WHERE hike_id IN (${placeholders})
+        ORDER BY hike_id ASC, position ASC
+    `, hikeIds);
+
+    for (const member of memberRows) {
+        if (!membersByHikeId.has(member.hikeId)) {
+            membersByHikeId.set(member.hikeId, []);
+        }
+        membersByHikeId.get(member.hikeId).push({ name: member.name, phone: member.phone ?? null });
+    }
+
+    return membersByHikeId;
+};
+
+// Hikes with their hiker, passage points and party members, from rows selected with HIKE_COLUMNS
 const buildHikes = async (hikeRows, nowMs) => {
-    const passagesByHikeId = await getPassagesByHikeId(hikeRows.map(row => row.hikeId));
+    const hikeIds = hikeRows.map(row => row.hikeId);
+    const passagesByHikeId = await getPassagesByHikeId(hikeIds);
+    const membersByHikeId = await getMembersByHikeId(hikeIds);
 
     return hikeRows.map(row => ({
         hikeId: row.hikeId,
@@ -159,6 +205,7 @@ const buildHikes = async (hikeRows, nowMs) => {
         scheduledDeparture: row.scheduledDeparture,
         expectedArrival: row.expectedArrival,
         partySize: row.partySize,
+        members: membersByHikeId.get(row.hikeId) ?? [],
         status: row.status,
         createdAt: row.createdAt,
         isOverdue: Date.parse(row.expectedArrival) < nowMs,
@@ -237,7 +284,9 @@ export const getHikersHikes = async (userId) => {
         ORDER BY scheduled_departure ASC
     `, [userId]);
 
-    const passagesByHikeId = await getPassagesByHikeId(hikeRows.map(row => row.hikeId));
+    const hikeIds = hikeRows.map(row => row.hikeId);
+    const passagesByHikeId = await getPassagesByHikeId(hikeIds);
+    const membersByHikeId = await getMembersByHikeId(hikeIds);
 
     return hikeRows.map(row => ({
         hikeId: row.hikeId,
@@ -247,6 +296,7 @@ export const getHikersHikes = async (userId) => {
         scheduledDeparture: row.scheduledDeparture,
         expectedArrival: row.expectedArrival,
         partySize: row.partySize,
+        members: membersByHikeId.get(row.hikeId) ?? [],
         status: row.status,
         createdAt: row.createdAt
     }));
