@@ -2,6 +2,8 @@ services:
   backend:
     build:
       context: ./backend
+    args:
+      SESSION_SECRET: ${SESSION_SECRET}
     image: ${DOCKERHUB_USERNAME:-mountainhut}/mountainhut:backend
     container_name: mountain-hut-backend
     ports:
@@ -15,6 +17,7 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - CORS_ORIGIN=http://localhost:5173
+      - SESSION_SECRET=${SESSION_SECRET}
     restart: unless-stopped
 
   frontend:

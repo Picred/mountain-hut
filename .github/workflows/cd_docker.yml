@@ -25,6 +25,7 @@ jobs:
       - name: Build Docker images
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SESSION_SECRET: ${{secrets.SESSION_SECRET}}
         run: docker compose build
 
       - name: Push Docker images
