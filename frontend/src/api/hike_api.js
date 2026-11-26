@@ -139,8 +139,8 @@ async function getOverdueHikes() {
         }
         throw new Error(
             response.status >= 500
-                ? "A server error occurred while confirming your arrival. Please try again."
-                : "Unable to confirm your safe arrival. Please try again."
+                ? "A server error occurred while loading missing hikers. Please try again."
+                : "Unable to load missing hikers. Please try again."
         );
     }
     return await response.json()
