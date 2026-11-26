@@ -33,7 +33,7 @@ app.use(cors({
 app.use(express.json());
 
 app.use(session({
-    secret: 'segreto',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false
 }));
