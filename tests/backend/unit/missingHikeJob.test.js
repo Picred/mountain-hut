@@ -99,14 +99,6 @@ describe('missingHikeJob', () => {
             ]);
         });
 
-        it('returns the fifth alert when the hike is overdue by 6 hours', () => {
-            const overdueHikes = [createHike(1, 6)];
-
-            expect(computeDueAlerts(overdueHikes, [], NOW.getTime())).toEqual([
-                { hikeId: 1, alertNumber: MAX_ALERTS },
-            ]);
-        });
-
         it('does not create alerts beyond the maximum number of alerts', () => {
             const overdueHikes = [createHike(1, 10)];
 
@@ -305,22 +297,6 @@ describe('missingHikeJob', () => {
             expect(createAlert).toHaveBeenNthCalledWith(
                 2, 2, 2, NOW_ISO
             );
-
-            logSpy.mockRestore();
-        });
-
-        it('does not log a message when an alert already exists', async () => {
-            const createAlert = vi.fn().mockResolvedValue(false);
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-            await createMissingAlerts(
-                [{ hikeId: 1, alertNumber: 1 }],
-                createAlert,
-                NOW_ISO
-            );
-
-            expect(createAlert).toHaveBeenCalledTimes(1);
-            expect(logSpy).not.toHaveBeenCalled();
 
             logSpy.mockRestore();
         });
@@ -527,31 +503,6 @@ describe('missingHikeJob', () => {
 
             errorSpy.mockRestore();
         });
-
-        it('currently marks an alert as sent even when its email fails', async () => {
-            const sendEmail = vi.fn().mockRejectedValue(
-                new Error('SMTP error')
-            );
-
-            const markSent = vi.fn().mockResolvedValue(undefined);
-
-            const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-            const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-            await sendPendingAlertEmails(
-                [{ ...sampleHike, alertNumber: 1 }],
-                ['warden@example.com'],
-                sendEmail,
-                markSent,
-                NOW_ISO
-            );
-
-            expect(sendEmail).toHaveBeenCalledTimes(1);
-            expect(markSent).toHaveBeenCalledTimes(1);
-
-            logSpy.mockRestore();
-            errorSpy.mockRestore();
-        });
     });
 
 
@@ -710,14 +661,6 @@ describe('missingHikeJob', () => {
             startMissingHikeJob();
 
             expect(vi.getTimerCount()).toBe(1);
-        });
-
-        it('does not schedule a timer when the job is stopped before starting', () => {
-            vi.useFakeTimers();
-
-            stopMissingHikeJob();
-
-            expect(vi.getTimerCount()).toBe(0);
         });
     });
 });

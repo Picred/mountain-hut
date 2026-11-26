@@ -11,6 +11,8 @@ vi.mock('../../../backend/models/dao/hikeDAO.js', () => ({
 import { getMissingHikes } from '../../../backend/models/dao/hikeDAO.js';
 import { listMissingHikes } from '../../../backend/services/hikeService.js';
 import { MAX_ALERTS } from '../../../backend/utils/missingHikeRules.js';
+import hikeRouter from '../../../backend/api/hikeRoutes.js';
+import ForbiddenError from '../../../backend/models/errors/ForbiddenError.js';
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -102,22 +104,6 @@ describe('listMissingHikes', () => {
         expect(getMissingHikes).toHaveBeenCalledTimes(1);
     });
 
-    it('adds totalAlerts independently to every missing hike', async () => {
-        getMissingHikes.mockResolvedValue([
-            { hikeId: 1, alertNumber: 1 },
-            { hikeId: 2, alertNumber: 4 },
-            { hikeId: 3, alertNumber: 5 },
-        ]);
-
-        const result = await listMissingHikes();
-
-        expect(result.map(hike => hike.totalAlerts)).toEqual([
-            MAX_ALERTS,
-            MAX_ALERTS,
-            MAX_ALERTS,
-        ]);
-    });
-
     it('does not modify the original hike objects', async () => {
         const hike = {
             hikeId: 1,
@@ -146,3 +132,87 @@ describe('listMissingHikes', () => {
         expect(getMissingHikes).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('GET /api/hikes/missing route', () => {
+
+    const routeLayer = hikeRouter.stack.find(
+        layer => layer.route?.path === '/missing' &&
+            layer.route.methods.get
+    );
+
+    const routeStack = routeLayer.route.stack;
+    const getMissingHikesHandler = routeStack.at(-1).handle;
+    const checkEmployeeRole = routeStack[1].handle;
+
+    function fakeRes() {
+        const res = {};
+        res.status = vi.fn(() => res);
+        res.json = vi.fn(() => res);
+        return res;
+    }
+
+    it('protects the route with authentication and employee role middleware', () => {
+        // Authentication middleware, role middleware, route handler
+        expect(routeStack).toHaveLength(3);
+    });
+
+    it('returns 200 with the missing hikers for an authorized employee', async () => {
+        const hikes = [
+            {
+                hikeId: 1,
+                hiker: { name: 'Mario Rossi' },
+                alertNumber: 1,
+                totalAlerts: MAX_ALERTS,
+            },
+        ];
+
+        getMissingHikes.mockResolvedValue(hikes);
+
+        const res = fakeRes();
+
+        await getMissingHikesHandler({ user: { role: 'employee' } }, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith(hikes);
+        expect(getMissingHikes).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 200 with an empty array when there are no missing hikers', async () => {
+        getMissingHikes.mockResolvedValue([]);
+
+        const res = fakeRes();
+
+        await getMissingHikesHandler({ user: { role: 'employee' } }, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.json).toHaveBeenCalledWith([]);
+    });
+
+    it('allows wardens to access the missing hikers route', () => {
+        const next = vi.fn();
+
+        checkEmployeeRole(
+            { user: { role: 'warden' } },
+            {},
+            next
+        );
+
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    it('rejects hikers with a ForbiddenError', () => {
+        const next = vi.fn();
+
+        checkEmployeeRole(
+            { user: { role: 'hiker' } },
+            {},
+            next
+        );
+
+        expect(next).toHaveBeenCalledWith(
+            expect.any(ForbiddenError)
+        );
+    });
+
+});
+

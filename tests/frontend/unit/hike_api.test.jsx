@@ -206,10 +206,10 @@ describe('hikeAPI.registerHike', () => {
         });
 
         it.each([
-            [400, 'Unable to confirm your safe arrival. Please try again.'],
-            [404, 'Unable to confirm your safe arrival. Please try again.'],
-            [500, 'A server error occurred while confirming your arrival. Please try again.'],
-            [503, 'A server error occurred while confirming your arrival. Please try again.'],
+            [400, 'Unable to load missing hikers. Please try again.'],
+            [404, 'Unable to load missing hikers. Please try again.'],
+            [500, 'A server error occurred while loading missing hikers. Please try again.'],
+            [503, 'A server error occurred while loading missing hikers. Please try again.'],
         ])('throws the correct fallback error for HTTP %i', async (status, message) => {
             fetchMock.mockResolvedValueOnce(
                 mockResponse({ ok: false, status })
@@ -242,7 +242,7 @@ describe('hikeAPI.registerHike', () => {
             await expect(
                 hikeAPI.getOverdueHikes()
             ).rejects.toThrow(
-                'A server error occurred while confirming your arrival. Please try again.'
+                'A server error occurred while loading missing hikers. Please try again.'
             );
         });
 
