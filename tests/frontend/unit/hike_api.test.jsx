@@ -125,4 +125,136 @@ describe('hikeAPI.registerHike', () => {
             'The hike could not be registered because of a server error. Please try again.'
         );
     });
+
+    describe('hikeAPI.getOverdueHikes', () => {
+
+        it('sends GET /api/hikes/missing with credentials: include and returns missing hikers', async () => {
+            const hikes = [
+                {
+                    hikeId: 1,
+                    hiker: {
+                        name: 'Mario Rossi',
+                        email: 'mario@example.com',
+                        phone: '3331234567',
+                    },
+                    destination: 'Monte Viso',
+                    expectedArrival: '2028-06-10T09:00:00.000Z',
+                    alertNumber: 1,
+                    totalAlerts: 5,
+                },
+            ];
+
+            fetchMock.mockResolvedValueOnce(
+                mockResponse({ body: hikes })
+            );
+
+            const result = await hikeAPI.getOverdueHikes();
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(fetchMock).toHaveBeenCalledWith(
+                `${SERVER_URL}/api/hikes/missing`,
+                {
+                    method: 'GET',
+                    credentials: 'include',
+                }
+            );
+            expect(result).toEqual(hikes);
+        });
+
+        it('returns an empty array when there are no missing hikers', async () => {
+            fetchMock.mockResolvedValueOnce(
+                mockResponse({ body: [] })
+            );
+
+            await expect(hikeAPI.getOverdueHikes()).resolves.toEqual([]);
+        });
+
+        it('returns multiple missing hikers with their alert information', async () => {
+            const hikes = [
+                {
+                    hikeId: 1,
+                    hiker: { name: 'Mario Rossi' },
+                    alertNumber: 1,
+                    totalAlerts: 5,
+                },
+                {
+                    hikeId: 2,
+                    hiker: { name: 'Anna Bianchi' },
+                    alertNumber: 3,
+                    totalAlerts: 5,
+                },
+            ];
+
+            fetchMock.mockResolvedValueOnce(
+                mockResponse({ body: hikes })
+            );
+
+            await expect(hikeAPI.getOverdueHikes()).resolves.toEqual(hikes);
+        });
+
+        it.each([
+            [401, 'Please log in to see the missing hikers'],
+            [403, 'Only employees see overdue hikes.'],
+        ])('throws the correct authorization error for HTTP %i', async (status, message) => {
+            fetchMock.mockResolvedValueOnce(
+                mockResponse({ ok: false, status })
+            );
+
+            await expect(
+                hikeAPI.getOverdueHikes()
+            ).rejects.toThrow(message);
+        });
+
+        it.each([
+            [400, 'Unable to confirm your safe arrival. Please try again.'],
+            [404, 'Unable to confirm your safe arrival. Please try again.'],
+            [500, 'A server error occurred while confirming your arrival. Please try again.'],
+            [503, 'A server error occurred while confirming your arrival. Please try again.'],
+        ])('throws the correct fallback error for HTTP %i', async (status, message) => {
+            fetchMock.mockResolvedValueOnce(
+                mockResponse({ ok: false, status })
+            );
+
+            await expect(
+                hikeAPI.getOverdueHikes()
+            ).rejects.toThrow(message);
+        });
+
+        it('propagates network errors', async () => {
+            fetchMock.mockRejectedValueOnce(
+                new TypeError('Failed to fetch')
+            );
+
+            await expect(
+                hikeAPI.getOverdueHikes()
+            ).rejects.toThrow('Failed to fetch');
+        });
+
+        it('uses a fallback error when the server returns invalid JSON for an unsuccessful response', async () => {
+            fetchMock.mockResolvedValueOnce(
+                mockResponse({
+                    ok: false,
+                    status: 500,
+                    invalidJson: true,
+                })
+            );
+
+            await expect(
+                hikeAPI.getOverdueHikes()
+            ).rejects.toThrow(
+                'A server error occurred while confirming your arrival. Please try again.'
+            );
+        });
+
+        it('propagates invalid JSON errors on successful responses', async () => {
+            fetchMock.mockResolvedValueOnce(
+                mockResponse({ invalidJson: true })
+            );
+
+            await expect(
+                hikeAPI.getOverdueHikes()
+            ).rejects.toThrow(SyntaxError);
+        });
+    });
+
 });
