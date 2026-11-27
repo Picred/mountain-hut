@@ -159,17 +159,13 @@ export const sendPendingAlertEmails = async (hikesWithEmailToSend, wardenEmails,
         for (const email of wardenEmails) {
             try {
                 await sendEmailFn({ to: email, subject, text });
+                await markAlertEmailSentFn(hike.hikeId, alertNum, nowIso);
+                console.log(`Alert #${alertNum} for hike ${hike.hikeId} marked as sent`);
             } catch (err) {
                 console.error(`Failed to send email to ${email} for alert #${alertNum} of hike ${hike.hikeId}:`, err);
             }
         }
 
-        try {
-            await markAlertEmailSentFn(hike.hikeId, alertNum, nowIso);
-            console.log(`Alert #${alertNum} for hike ${hike.hikeId} marked as sent`);
-        } catch (err) {
-            console.error(`Failed to mark alert #${alertNum} of hike ${hike.hikeId} as sent:`, err);
-        }
     }
 };
 
