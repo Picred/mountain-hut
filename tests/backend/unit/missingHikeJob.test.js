@@ -446,6 +446,8 @@ describe('missingHikeJob', () => {
             );
 
             expect(errorSpy).toHaveBeenCalledTimes(1);
+            // not marked as sent: a warden did not receive it, so it is sent again at the next check
+            expect(markSent).not.toHaveBeenCalled();
 
             logSpy.mockRestore();
             errorSpy.mockRestore();
@@ -473,7 +475,9 @@ describe('missingHikeJob', () => {
             );
 
             expect(sendEmail).toHaveBeenCalledTimes(2);
-            expect(markSent).toHaveBeenCalledTimes(2);
+            // only the alert whose email was sent is marked: the other one is sent again at the next check
+            expect(markSent).toHaveBeenCalledTimes(1);
+            expect(markSent).toHaveBeenCalledWith(11, 2, NOW_ISO);
 
             logSpy.mockRestore();
             errorSpy.mockRestore();

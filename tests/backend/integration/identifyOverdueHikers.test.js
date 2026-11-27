@@ -171,6 +171,23 @@ describe('check of the missing hikers', () => {
         ]);
     });
 
+    it('sends the email of an alert again at the next check when it could not be sent', async () => {
+        const hikeId = insertHike();
+        const failingSendEmail = vi.fn().mockRejectedValue(new Error('SMTP unavailable'));
+        await checkMissingHikes(after(2), { sendEmail: failingSendEmail });
+
+        expect(alertsOf(hikeId)).toEqual([
+            { alert_number: 1, created_at: after(2).toISOString(), email_sent_at: null },
+        ]);
+
+        const sendEmail = await runChecks(after(2.5));
+
+        expect(alertsOf(hikeId)).toEqual([
+            { alert_number: 1, created_at: after(2).toISOString(), email_sent_at: after(2.5).toISOString() },
+        ]);
+        expect(subjects(sendEmail)).toEqual(['[Mountain Hut] Missing Hiker Alert #1 - Anna Winden']);
+    });
+
     it.each(['returned', 'cancelled'])('does not alert a hike that is %s', async (status) => {
         const hikeId = insertHike({ status });
 
