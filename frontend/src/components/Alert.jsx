@@ -18,7 +18,7 @@ export const Alert = () => {
                 // server non raggiungibile: si riprova al prossimo polling
             }
         };
-        check();
+        void check(); // check handles its own errors
         const id = setInterval(check, POLL_MS);
         return () => clearInterval(id);
     }, []);
