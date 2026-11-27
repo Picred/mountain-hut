@@ -120,7 +120,11 @@ afterAll(async () => {
         server.kill();
         await once(server, 'exit');
     }
-    rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5 });
+    try {
+        rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5 });
+    } catch {
+        // Windows: the DAO imported by the test still holds the sqlite file open
+    }
 });
 
 describe('check of the missing hikers', () => {
