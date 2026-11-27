@@ -101,18 +101,22 @@ export const computeDueAlerts = (overdueHikes, existingAlerts, nowMs) => {
 
 /**
  * Builds email content for a missing hiker alert.
- * @param {{hiker: {name: string, email: string, phone: string|null, emergencyContact: string|null}, destination: string, route: string, partySize: number, expectedArrival: string}} hike
+ * @param {{hiker: {name: string, email: string, phone: string|null, emergencyContact: string|null}, destination: string, route: string, partySize: number, members?: Array<{name: string, phone: string|null}>, expectedArrival: string}} hike
  * @param {number} alertNum
  * @returns {{subject: string, text: string}}
  */
 export const buildAlertEmail = (hike, alertNum) => {
     const expectedArrival = new Date(hike.expectedArrival).toLocaleString();
+    const members = (hike.members ?? [])
+        .map(member => member.phone ? `${member.name} (${member.phone})` : member.name)
+        .join(', ');
     const subject = `[Mountain Hut] Missing Hiker Alert #${alertNum} - ${hike.hiker.name}`;
     const text = `Hiker ${hike.hiker.name} (${hike.hiker.email}) has not returned from hike to ${hike.destination}.\n` +
         `Expected return: ${expectedArrival}\n` +
         `Alert number: ${alertNum} of ${MAX_ALERTS}\n` +
         `Route: ${hike.route}\n` +
         `Party size: ${hike.partySize}\n` +
+        `Party members: ${members || 'N/A'}\n` +
         `Hiker phone: ${hike.hiker.phone ?? 'N/A'}\n` +
         `Emergency contact: ${hike.hiker.emergencyContact ?? 'N/A'}\n`;
     return { subject, text };
@@ -155,17 +159,13 @@ export const sendPendingAlertEmails = async (hikesWithEmailToSend, wardenEmails,
         for (const email of wardenEmails) {
             try {
                 await sendEmailFn({ to: email, subject, text });
+                await markAlertEmailSentFn(hike.hikeId, alertNum, nowIso);
+                console.log(`Alert #${alertNum} for hike ${hike.hikeId} marked as sent`);
             } catch (err) {
                 console.error(`Failed to send email to ${email} for alert #${alertNum} of hike ${hike.hikeId}:`, err);
             }
         }
 
-        try {
-            await markAlertEmailSentFn(hike.hikeId, alertNum, nowIso);
-            console.log(`Alert #${alertNum} for hike ${hike.hikeId} marked as sent`);
-        } catch (err) {
-            console.error(`Failed to mark alert #${alertNum} of hike ${hike.hikeId} as sent:`, err);
-        }
     }
 };
 
