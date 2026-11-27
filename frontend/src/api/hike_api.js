@@ -7,6 +7,8 @@ const HikeRegistrationErrors = {
     DEPARTURE_IN_THE_PAST: "Departure must be in the future.",
     HIKE_TIME_CONFLICT:
         "You already have another scheduled hike during this period. Choose a different time.",
+    PARTY_SIZE_MISMATCH:
+        "The number of party members cannot exceed the party size minus one.",
 };
 
 async function registerHike(hike) {

@@ -98,6 +98,9 @@ We chose AGPL v3 because we want this software to stay open for good, even when 
 - `reservation_requirements` contains id, reservation_id, people_count (number), description (text), is_allergy (boolean)
 - `hikes` contains hike_id, user_id, destination (text), route (text), scheduled_departure (text), expected_arrival (text), party_size (number), status (text), created_at (text)
 - `hike_passages` contains hike_id, position (number), name (text)
+- `hike_alerts` containse hike_id, alert_number (number), created_at (text), email_sent_at (text)
+- `hike_members` contains hike_id, position (number), name (text), phone (text, nullable): the other people of the party of a hike, some or all of them (at most party_size - 1), the hiker who registered the hike is the point of contact
+
 
 Dates and times (`start_at`, `end_at`, `created_at`) are ISO 8601 strings in UTC.
 

@@ -289,6 +289,44 @@ export const ActiveHikesPage = () => {
                                                 </div>
                                             )}
                                         </div>
+                                        {hike.partySize > 1 && (
+                                            <div>
+                                                <h3 className="text-sm font-semibold text-white mb-3">
+                                                    Party members
+                                                </h3>
+
+                                                {hike.members?.length > 0 ? (
+                                                    <div className="space-y-3">
+                                                        {hike.members.map((member, index) => (
+                                                            <div
+                                                                key={index}
+                                                                className="rounded-xl border border-white/10 bg-white/5 p-4"
+                                                            >
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                                                    <div>
+                                                                        <p className="text-slate-400">Name</p>
+                                                                        <p className="text-white mt-1">
+                                                                            {member.name}
+                                                                        </p>
+                                                                    </div>
+
+                                                                    <div>
+                                                                        <p className="text-slate-400">Phone</p>
+                                                                        <p className="text-white mt-1">
+                                                                            {member.phone || "Not provided"}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm text-slate-400">
+                                                        No party member details provided.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </article>

@@ -172,6 +172,24 @@ export const MyHikesPage = () => {
                                     </div>
                                 </div>
 
+                                {hike.members?.length > 0 && (
+                                    <div className="mt-4 border-t border-white/10 pt-4">
+                                        <h3 className="text-sm font-semibold text-slate-300">
+                                            Party members
+                                        </h3>
+                                        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-400">
+                                            {hike.members.map((member, index) => (
+                                                <li key={`${member.name}-${index}`}>
+                                                    {member.name}
+                                                    {member.phone && (
+                                                        <span> — {member.phone}</span>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
                                 {hike.passages?.length > 0 && (
                                     <div className="mt-4 border-t border-white/10 pt-4">
                                         <h3 className="text-sm font-semibold text-slate-300">Passages</h3>

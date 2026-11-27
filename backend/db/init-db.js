@@ -131,21 +131,27 @@ const RESERVATIONS = [
 const HIKES = [
   { id: 1, userId: 3, destination: 'Lake Chiaretto', route: 'Via the Chiaretto lake, return by the same path',
     departure: at(1, 6), arrival: at(1, 15), partySize: 3, status: 'scheduled',
-    passages: ['Viso Mozzo', 'Chiaretto saddle'] },
+    passages: ['Viso Mozzo', 'Chiaretto saddle'],
+    members: [{ name: 'Marco Rossi', phone: '+393331111111' }, { name: 'Giulia Bianchi', phone: null }] },
   { id: 2, userId: 4, destination: 'Mount Viso', route: 'Normal route from the hut, descent by the south ridge',
     departure: at(2, 5), arrival: at(2, 17), partySize: 2, status: 'scheduled',
-    passages: [] },
+    passages: [],
+    members: [{ name: 'Luca Verdi', phone: '+393332222222' }] },
   // hike completed
   { id: 3, userId: 3, destination: 'Pian del Re', route: 'Forest path along the river',
     departure: hoursAgo(80), arrival: hoursAgo(74), partySize: 4, status: 'returned',
-    passages: ['Bridge over the stream'] },
+    passages: ['Bridge over the stream'],
+    // only some members given: the hiker may not know all of them
+    members: [{ name: 'Paolo Gallo', phone: '+393333333333' }, { name: 'Elena Costa', phone: null }] },
   // overdue: scheduled, but the expected arrival has passed
   { id: 4, userId: 5, destination: 'Viso Mozzo', route: 'Ridge route, return through the Vallanta valley',
     departure: hoursAgo(9), arrival: hoursAgo(2), partySize: 1, status: 'scheduled',
-    passages: ['Vallanta pass'] },
+    passages: ['Vallanta pass'],
+    members: [] },
   { id: 5, userId: 8, destination: 'Lake Fiorenza', route: 'Path 3, same way back',
     departure: at(3, 8), arrival: at(3, 14), partySize: 2, status: 'cancelled',
-    passages: [] },
+    passages: [],
+    members: [{ name: 'Sara Neri', phone: null }] },
 ];
 
 
@@ -260,6 +266,16 @@ CREATE TABLE hike_passages (
   PRIMARY KEY (hike_id, position)
 );
 
+-- other people taking part in a hike (the hiker who registered it is the point of contact
+-- and is not repeated here): some or all of them, so at most party_size - 1 members
+CREATE TABLE hike_members (
+  hike_id  INTEGER NOT NULL REFERENCES hikes (hike_id) ON DELETE CASCADE,
+  position INTEGER NOT NULL CHECK (position > 0),
+  name     TEXT    NOT NULL,
+  phone    TEXT,
+  PRIMARY KEY (hike_id, position)
+);
+
 -- alerts for a hiker who has not recorded the end of the hike: one row for each alert number
 -- (the number of alerts and the delays are in utils/missingHikeRules.js)
 CREATE TABLE hike_alerts (
@@ -311,6 +327,15 @@ async function verify(db) {
     HAVING SUM(rt.allocated_seats) > t.seats`);
   if (overbooked.length)
     throw new Error(`Slot table ${overbooked.map(r => r.slot_table_id)} has more seats allocated than it has`);
+
+  const badParty = await all(db, `
+    SELECT h.hike_id
+    FROM hikes h
+    JOIN hike_members m ON m.hike_id = h.hike_id
+    GROUP BY h.hike_id
+    HAVING COUNT(*) > h.party_size - 1`);
+  if (badParty.length)
+    throw new Error(`Hike ${badParty.map(r => r.hike_id)}: more members than party_size - 1`);
 }
 
 
@@ -387,6 +412,10 @@ async function main() {
 
       for (const [i, name] of h.passages.entries())
         await run(db, 'INSERT INTO hike_passages (hike_id, position, name) VALUES (?, ?, ?)', [h.id, i + 1, name]);
+
+      for (const [i, m] of h.members.entries())
+        await run(db, 'INSERT INTO hike_members (hike_id, position, name, phone) VALUES (?, ?, ?, ?)',
+          [h.id, i + 1, m.name, m.phone]);
     }
 
     await verify(db);
