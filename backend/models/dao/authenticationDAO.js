@@ -20,7 +20,9 @@ export const getUser = (email, password) => {
                 email: row.email, 
                 role: row.role,
                 phone: row.phone,
-                passwordToChange: row.password_to_change === 1
+                emergency_contact: row.emergency_contact,
+                notes: row.notes,
+                passwordToChange: row.password_to_change === 1     
             };
 
             crypto.scrypt(password, row.salt, 32, (err, hashedPassword) => {
@@ -54,20 +56,21 @@ export const hashPassword = (password) => {
 
 
 // Crea un nuovo utente nel database
-export const createUser = (name, email, phone, password, role = 'hiker') => {
+export const createUser = (name, email, phone, password, emergency_contact, notes, role = 'hiker') => {
     return new Promise((resolve, reject) => {
         const salt = crypto.randomBytes(16).toString('hex');
+        
 
         crypto.scrypt(password, salt, 32, (err, hashedPassword) => {
             if (err) return reject(err);
 
             const sql = `
-                INSERT INTO USERS (name, email, phone, password_hash, salt, role)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO USERS (name, email, phone, password_hash, salt, role, notes, emergency_contact)
+                VALUES (?, ?, ?, ?, ?, ?,?,?)
             `;
             const passwordHashHex = hashedPassword.toString('hex');
 
-            db.run(sql, [name, email, phone, passwordHashHex, salt, role], function (err) {
+            db.run(sql, [name, email, phone, passwordHashHex, salt, role, notes, emergency_contact], function (err) {
                 if (err) {
                     if (err.message && err.message.includes('UNIQUE constraint failed')) {
                         return resolve({ isDuplicate: true });
@@ -81,7 +84,9 @@ export const createUser = (name, email, phone, password, role = 'hiker') => {
                     name,
                     email,
                     phone,
-                    role 
+                    role,
+                    notes,
+                    emergency_contact
                 });
             });
         });

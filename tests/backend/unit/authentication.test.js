@@ -205,7 +205,7 @@ describe('authenticationRoutes', () => {
 
       await register(req, res, vi.fn());
 
-      expect(createUserMock).toHaveBeenCalledWith('Mario Rossi', 'mario@example.com', '3331234567', 'secret1');
+      expect(createUserMock).toHaveBeenCalledWith('Mario Rossi', 'mario@example.com', '3331234567', 'secret1', null, null);
       expect(req.login.mock.calls[0][0]).toEqual(newUser);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(newUser);

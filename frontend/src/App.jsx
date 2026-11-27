@@ -100,9 +100,9 @@ export const App = () => {
   }
 
   // handler for registration
-  const handleRegister = async (name, email, phone, password) => {
+  const handleRegister = async (name, email, phone, password, emergency_contact, notes) => {
     try {
-      const newUser = await authAPI.register(name, email, phone, password);
+      const newUser = await authAPI.register(name, email, phone, password, emergency_contact, notes);
       setLoggedIn(true);
       setUser(newUser);
       setMessage({ msg: "Registration completed successfully!", type: "success" });

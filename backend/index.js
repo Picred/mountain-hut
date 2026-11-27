@@ -14,6 +14,7 @@ import hikeRoutes from './api/hikeRoutes.js';
 import { errorHandler } from './utils/errorHandler.js';
 import capacityRoutes from './api/capacityRoutes.js';
 import blockUntilPasswordChanged from './middlewares/changePassword-middleware.js';
+import { startMissingHikeJob } from './services/missingHikeJob.js';
 
 
 const app = express();
@@ -32,7 +33,7 @@ app.use(cors({
 app.use(express.json());
 
 app.use(session({
-    secret: 'segreto',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false
 }));
@@ -59,4 +60,7 @@ app.use(errorHandler);
 // Start the HTTP server.
 app.listen(PORT, () => {
     console.log(`Mountain Hut backend running on http://localhost:${PORT}`);
+
+    // Alerts for the hikers who have not recorded the end of the hike.
+    startMissingHikeJob();
 });

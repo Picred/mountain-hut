@@ -1,6 +1,7 @@
-import { createHike, getActiveHikes, confirmSafeArrival, getHikersHikes } from '../models/dao/hikeDAO.js';
+import { createHike, getActiveHikes, getMissingHikes, confirmSafeArrival, getHikersHikes } from '../models/dao/hikeDAO.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import { isNonEmptyString, isPositiveInt, isValidIsoDateTime } from '../utils/validator.js';
+import { MAX_ALERTS } from '../utils/missingHikeRules.js';
 
 export const registerHike = async (userId, data) => {
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -63,6 +64,13 @@ export const registerHike = async (userId, data) => {
 
 export const listActiveHikes = async () => {
     return await getActiveHikes();
+};
+
+// Hikers considered missing, each with the number of its last alert and the total number of alerts
+export const listMissingHikes = async () => {
+    const hikes = await getMissingHikes();
+
+    return hikes.map(hike => ({ ...hike, totalAlerts: MAX_ALERTS }));
 };
 
 

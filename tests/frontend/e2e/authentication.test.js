@@ -28,7 +28,7 @@ async function fillRegister(page, { name, email, phone, password }) {
   await page.goto('/register');
   await page.getByPlaceholder('Mario Rossi').fill(name);
   await page.getByPlaceholder('mario@example.com').fill(email);
-  await page.getByPlaceholder('333 1234567').fill(phone);
+ await page.getByPlaceholder('333 1234567').first().fill(phone);
   await page.getByPlaceholder('••••••••').fill(password);
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
 }

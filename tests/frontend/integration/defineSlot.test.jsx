@@ -114,7 +114,7 @@ describe('Authentication flow', () => {
 
     await user.type(screen.getByPlaceholderText('Mario Rossi'), 'Mario Rossi');
     await user.type(screen.getByPlaceholderText('mario@example.com'), 'mario@example.com');
-    await user.type(screen.getByPlaceholderText('333 1234567'), '3331234567');
+    await user.type(screen.getAllByPlaceholderText('333 1234567')[0], '3331234567');
     await user.type(screen.getByPlaceholderText('••••••••'), 'secret1');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 

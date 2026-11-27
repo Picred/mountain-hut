@@ -218,7 +218,7 @@ describe('RegisterForm', () => {
   async function fillForm(user) {
     await user.type(screen.getByPlaceholderText('Mario Rossi'), 'Mario Rossi');
     await user.type(screen.getByPlaceholderText('mario@example.com'), 'mario@example.com');
-    await user.type(screen.getByPlaceholderText('333 1234567'), '3331234567');
+    await user.type(screen.getAllByPlaceholderText('333 1234567')[0], '3331234567');
     await user.type(screen.getByPlaceholderText('••••••••'), 'secret1');
   }
 
@@ -231,7 +231,7 @@ describe('RegisterForm', () => {
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(onRegister).toHaveBeenCalledTimes(1);
-    expect(onRegister).toHaveBeenCalledWith('Mario Rossi', 'mario@example.com', '3331234567', 'secret1');
+    expect(onRegister).toHaveBeenCalledWith('Mario Rossi', 'mario@example.com', '3331234567', 'secret1', null, null);
   });
 
   it('shows the error message when the registration fails', async () => {
@@ -248,9 +248,12 @@ describe('RegisterForm', () => {
   it('requires all fields and a password of at least 6 characters', () => {
     renderForm(<RegisterForm onRegister={vi.fn()} />);
 
-    for (const placeholder of ['Mario Rossi', 'mario@example.com', '333 1234567', '••••••••']) {
+    for (const placeholder of ['Mario Rossi', 'mario@example.com', '••••••••']) {
       expect(screen.getByPlaceholderText(placeholder)).toBeRequired();
     }
+    const [phone, emergencyContact] = screen.getAllByPlaceholderText('333 1234567');
+    expect(phone).toBeRequired();
+    expect(emergencyContact).not.toBeRequired();
     expect(screen.getByPlaceholderText('••••••••')).toHaveAttribute('minLength', '6');
   });
 });

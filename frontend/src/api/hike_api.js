@@ -123,7 +123,31 @@ async function confirmHikeArrival(hikeId) {
     return await response.json();
 }
 
+async function getOverdueHikes() {
+    const response = await fetch(`${SERVER_URL}/api/hikes/missing`, {
+        method: "GET",
+        credentials: "include"
+    })
 
-const hikeAPI = { registerHike, getActiveHikes, getHikerHikes, confirmHikeArrival };
+    if (!response.ok) {
+        if (response.status === 401) {
+            throw new Error("Please log in to see the missing hikers")
+        }
+
+        if (response.status === 403) {
+            throw new Error("Only employees see overdue hikes.")
+        }
+        throw new Error(
+            response.status >= 500
+                ? "A server error occurred while loading missing hikers. Please try again."
+                : "Unable to load missing hikers. Please try again."
+        );
+    }
+    return await response.json()
+}
+
+
+
+const hikeAPI = { registerHike, getActiveHikes, getHikerHikes, confirmHikeArrival, getOverdueHikes};
 
 export default hikeAPI;

@@ -1,14 +1,14 @@
 const SERVER_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
 // 1. REGISTRAZIONE
-async function register(name, email, phone, password, role = 'hiker') {
+async function register(name, email, phone, password , emergency_contact, notes, role = 'hiker') {
   const response = await fetch(`${SERVER_URL}/api/users`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     credentials: 'include',
-    body: JSON.stringify({ name, email, phone, password, role }),
+    body: JSON.stringify({ name, email, phone, password,emergency_contact, notes, role}),
   });
 
   if (!response.ok) {

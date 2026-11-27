@@ -86,8 +86,8 @@ test.describe('Reservation Flow (E2E)', () => {
     // 6. Adjust party size: click "+" to increase to 2 guests
     const plusButton = page.getByRole('button', { name: 'Add one guest' });
     await plusButton.click();
-    const guestCounter = page.locator('div:has(> button[aria-label="Add one guest"]) > span');
-    await expect(guestCounter).toHaveText('2');
+    await expect(page.locator('#party-size')).toHaveValue('2');
+
 
     // 7. Check availability for the selected slot and party size
     const checkButton = page.getByRole('button', {
