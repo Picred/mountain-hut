@@ -65,6 +65,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
 const TODAY = new Date();
 TODAY.setUTCHours(0, 0, 0, 0);
+const NEXT_YEAR = TODAY.getUTCFullYear() + 1;
 
 /** ISO string (UTC) for `daysFromNow` days and `hour` hours after today's 00:00 UTC. */
 const at = (daysFromNow, hour) => new Date(TODAY.getTime() + daysFromNow * DAY + hour * HOUR).toISOString();
@@ -75,7 +76,8 @@ const validPayload = () => ({
     route: 'Pian del Re - Colle delle Traversette - Monte Viso',
     scheduledDeparture: at(30, 8),
     expectedArrival: at(30, 17),
-    partySize: 3,
+    members: [{ name: "Marco", phone: "1112223334" }],
+    partySize: 2,
     passages: ['Pian del Re', 'Colle delle Traversette', 'Rifugio Quintino Sella'],
 });
 
@@ -93,7 +95,7 @@ beforeAll(async () => {
 }, 20000);
 
 afterEach(() => {
-    // Children first, in case hike_passages has no ON DELETE CASCADE.
+    db.prepare('DELETE FROM hike_members WHERE hike_id > ?').run(seed.hikeId);
     db.prepare('DELETE FROM hike_passages WHERE hike_id > ?').run(seed.hikeId);
     db.prepare('DELETE FROM hikes WHERE hike_id > ?').run(seed.hikeId);
 });
@@ -110,9 +112,94 @@ afterAll(async () => {
 describe('POST `/api/hikes`', () => {
     // ---------- Success ----------
 
-    it('a hiker creates a hike successfully', async () => {
+    it('a hiker creates a hike succesfully with no members', async () => {
+        const cookie = await loginAs(ANNA);
+        const { members: _removed, ...payloadWithoutMembers } = validPayload();
+
+        const res = await request('POST', '/api/hikes', cookie, payloadWithoutMembers);
+
+        expect(res.status).toBe(201);
+        expect(res.body).toEqual({
+            hikeId: expect.any(Number),
+            userId: userIdOf(ANNA),
+            ...payloadWithoutMembers,
+            members: [],
+            status: 'scheduled',
+        });
+    });
+
+    it('a hiker creates a hike succesfully with members', async () => {
         const cookie = await loginAs(ANNA);
         const payload = validPayload();
+
+        const res = await request('POST', '/api/hikes', cookie, payload);
+
+
+        expect(res.status).toBe(201);
+        expect(res.body).toEqual({
+            hikeId: expect.any(Number),
+            userId: userIdOf(ANNA),
+            ...payload,
+            status: 'scheduled',
+        });
+    })
+
+    it('a hiker creates a hike succesfully with a member with phone number equal to null', async () => {
+        const cookie = await loginAs(ANNA);
+        const payload = { ...validPayload(), members: [{ name: "Anna", phone: null }] }
+
+        const res = await request('POST', '/api/hikes', cookie, payload);
+
+        expect(res.status).toBe(201);
+        expect(res.body).toEqual({
+            hikeId: expect.any(Number),
+            userId: userIdOf(ANNA),
+            ...payload,
+            status: 'scheduled',
+        });
+
+    })
+
+    it('a hiker creates a hike succesfully with a member without phone number', async () => {
+        const cookie = await loginAs(ANNA);
+        const payload = { ...validPayload(), members: [{ name: "Anna" }] }
+
+        const res = await request('POST', '/api/hikes', cookie, payload);
+
+        const resPayload = { ...validPayload(), members: [{ name: "Anna", phone: null }] }
+
+        expect(res.status).toBe(201);
+        expect(res.body).toEqual({
+            hikeId: expect.any(Number),
+            userId: userIdOf(ANNA),
+            ...resPayload,
+            status: 'scheduled',
+        });
+
+    })
+
+
+    it('a hiker creates a hike succesfully without writing party requirements', async () => {
+        const cookie = await loginAs(ANNA);
+        const { members: _d, partySize: _p, ...payloadWithoutReq } = validPayload()
+
+        const res = await request('POST', '/api/hikes', cookie, payloadWithoutReq);
+
+        expect(res.status).toBe(201);
+        expect(res.body).toEqual({
+            hikeId: expect.any(Number),
+            userId: userIdOf(ANNA),
+            ...payloadWithoutReq,
+            members: [],
+            partySize: 1,
+            status: 'scheduled',
+        });
+
+    })
+
+    it('a hiker creates a hike succesfully with fewer members than partySize - 1', async () => {
+        const cookie = await loginAs(ANNA);
+        const payload = { ...validPayload(), partySize: 3, members: [{ name: 'Marco', phone: '1112223334' }] };
 
         const res = await request('POST', '/api/hikes', cookie, payload);
 
@@ -124,6 +211,7 @@ describe('POST `/api/hikes`', () => {
             status: 'scheduled',
         });
     });
+
 
     it('persists the hike in the database', async () => {
         const cookie = await loginAs(ANNA);
@@ -138,6 +226,9 @@ describe('POST `/api/hikes`', () => {
 
         const { n } = db.prepare('SELECT COUNT(*) AS n FROM hike_passages WHERE hike_id = ?').get(res.body.hikeId);
         expect(n).toBe(payload.passages.length);
+
+        const { num } = db.prepare('SELECT COUNT(*) AS num FROM hike_members WHERE hike_id = ?').get(res.body.hikeId);
+        expect(num).toBe(payload.members.length);
     });
 
     it('creates a hike with an empty passages array', async () => {
@@ -201,6 +292,8 @@ describe('POST `/api/hikes`', () => {
         ['partySize is zero', { partySize: 0 }, 'INVALID_INPUT'],
         ['partySize is not an integer', { partySize: 2.5 }, 'INVALID_INPUT'],
         ['partySize is a string', { partySize: 'aaa' }, 'INVALID_INPUT'],
+        ['partySize is a numeric string', { partySize: '2' }, 'INVALID_INPUT'],
+
         ['passages is a number', { passages: 1 }, 'INVALID_INPUT'],
         ['passages is a string', { passages: 'aaa' }, 'INVALID_INPUT'],
         ['passages contains an empty string', { passages: ['ok', ''] }, 'INVALID_INPUT'],
@@ -211,12 +304,30 @@ describe('POST `/api/hikes`', () => {
         ['scheduledDeparture has no timezone', { scheduledDeparture: `${at(30, 0).slice(0, 10)}T08:00:00` }, 'INVALID_DATE'],
         ['expectedArrival has no timezone', { expectedArrival: `${at(30, 0).slice(0, 10)}T17:00:00` }, 'INVALID_DATE'],
         ['scheduledDeparture is date only', { scheduledDeparture: at(30, 0).slice(0, 10) }, 'INVALID_DATE'],
+        ['scheduledDeparture has an invalid value', { scheduledDeparture: `${NEXT_YEAR}-02-30T17:00:00Z` }, 'INVALID_DATE'],
         ['expectedArrival is date only', { expectedArrival: at(30, 0).slice(0, 10) }, 'INVALID_DATE'],
+        ['expectedArrival has an invalid value', { expectedArrival: `${NEXT_YEAR}-02-30T17:00:00Z` }, 'INVALID_DATE'],
+
+        ['invalid party members', { members: ["Anna", "Marco"] }, 'INVALID_INPUT'],
+        ['more members than party size', { members: [{ name: "Anna", phone: "111222333" }, { name: "Marco", phone: "11122121" }, { name: "Giovanni", phone: "352525" }] }, 'PARTY_SIZE_MISMATCH'],
+        ['party members is a string', { members: "aaa" }, "INVALID_INPUT"],
+        ["party members is a number", { members: 1 }, "INVALID_INPUT"],
+        ["a party member's phone number is an empty string", { members: [{ name: "Anna", phone: "" }] }, "INVALID_INPUT"],
+        ["a party member's phone number is a number", { members: [{ name: "Anna", phone: 1 }] }, "INVALID_INPUT"],
+        ["a party member's name is missing", { members: [{ phone: "111222333" }] }, "INVALID_INPUT"],
+        ["a party member's name is an empty string", { members: [{ name: "", phone: "111222333" }] }, "INVALID_INPUT"],
+        ["a party member's name is a number", { members: [{ name: 2, phone: "11122222" }] }, "INVALID_INPUT"],
+        ['members given without partySize (default 1)', { partySize: undefined, members: [{ name: 'Marco', phone: '1112223334' }] }, 'PARTY_SIZE_MISMATCH'],
 
         ['departure is in the past', { scheduledDeparture: at(-30, 8), expectedArrival: at(-30, 17) }, 'DEPARTURE_IN_THE_PAST'],
 
         ['arrival before departure', { scheduledDeparture: at(30, 17), expectedArrival: at(30, 8) }, 'INVALID_TIME_RANGE'],
         ['arrival equal to departure', { scheduledDeparture: at(30, 8), expectedArrival: at(30, 8) }, 'INVALID_TIME_RANGE'],
+
+        ['party members is null', { members: null }, 'INVALID_INPUT'],
+        ['party members is an object', { members: {} }, 'INVALID_INPUT'],
+        ['passages is null', { passages: null }, 'INVALID_INPUT'],
+
     ])('returns 400 when %s', async (_label, override, error) => {
         const cookie = await loginAs(ANNA);
 
@@ -226,7 +337,7 @@ describe('POST `/api/hikes`', () => {
         expect(res.body).toEqual({ error });
     });
 
-    it.each(['destination', 'route', 'scheduledDeparture', 'expectedArrival', 'partySize'])(
+    it.each(['destination', 'route', 'scheduledDeparture', 'expectedArrival'])(
         'returns 400 INVALID_INPUT when %s is missing',
         async (field) => {
             const cookie = await loginAs(ANNA);
@@ -303,13 +414,12 @@ describe('POST `/api/hikes`', () => {
         expect(second.status).toBe(201);
     });
 
-    it('does not count non-scheduled hikes as conflicts', async () => {
+    it.each(['returned', 'cancelled'])('does not count %s hikes as conflicts', async (status) => {
         const cookie = await loginAs(ANNA);
         const first = await request('POST', '/api/hikes', cookie, validPayload());
         expect(first.status).toBe(201);
 
-        // Adjust the status value to one your schema actually allows.
-        db.prepare("UPDATE hikes SET status = 'returned' WHERE hike_id = ?").run(first.body.hikeId);
+        db.prepare('UPDATE hikes SET status = ? WHERE hike_id = ?').run(status, first.body.hikeId);
 
         const second = await request('POST', '/api/hikes', cookie, validPayload());
         expect(second.status).toBe(201);
