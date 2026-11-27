@@ -56,6 +56,7 @@ const makeHikeRow = (overrides = {}) => ({
 const makeExpectedHike = (overrides = {}) => ({
     ...makeHikeRow(overrides),
     passages: [],
+    members: [],
 });
 
 function handler(method, path) {
@@ -342,6 +343,7 @@ describe('getHikersHikes', () => {
 
         dbAll
             .mockResolvedValueOnce(rows)
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getHikersHikes(10);
@@ -351,7 +353,7 @@ describe('getHikersHikes', () => {
             makeExpectedHike({ hikeId: 2, status: 'returned' }),
         ]);
 
-        expect(dbAll).toHaveBeenCalledTimes(2);
+        expect(dbAll).toHaveBeenCalledTimes(3);
         expect(dbAll.mock.calls[0][1]).toEqual([10]);
     });
 
@@ -394,7 +396,8 @@ describe('getHikersHikes', () => {
             .mockResolvedValueOnce([
                 { hikeId: 1, name: 'Pian del Re' },
                 { hikeId: 1, name: 'Lago Fiorenza' },
-            ]);
+            ])
+            .mockResolvedValueOnce([]);
 
         const result = await getHikersHikes(10);
 
@@ -423,7 +426,8 @@ describe('getHikersHikes', () => {
                 { hikeId: 1, name: 'Passage A' },
                 { hikeId: 2, name: 'Passage B' },
                 { hikeId: 1, name: 'Passage C' },
-            ]);
+            ])
+            .mockResolvedValueOnce([]);
 
         const result = await getHikersHikes(10);
 
@@ -442,6 +446,7 @@ describe('getHikersHikes', () => {
     it('returns an empty passage list when a hike has no passages', async () => {
         dbAll
             .mockResolvedValueOnce([makeHikeRow()])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getHikersHikes(10);
@@ -454,6 +459,7 @@ describe('getHikersHikes', () => {
             .mockResolvedValueOnce([
                 makeHikeRow({ status: 'returned' }),
             ])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getHikersHikes(10);
@@ -467,6 +473,7 @@ describe('getHikersHikes', () => {
                 makeHikeRow({ hikeId: 2 }),
                 makeHikeRow({ hikeId: 1 }),
             ])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getHikersHikes(10);

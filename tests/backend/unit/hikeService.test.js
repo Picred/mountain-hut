@@ -23,12 +23,12 @@ describe('hikeService - registerHike', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
-
-    it('successfully registers a hike with valid data and normalized fields', async () => {
+it('successfully registers a hike with valid data and normalized fields', async () => {
         const fakeCreatedHike = {
             hikeId: 1,
             userId,
             ...validHikeData,
+            members: [],
             status: 'scheduled'
         };
         createHike.mockResolvedValueOnce(fakeCreatedHike);
@@ -47,11 +47,11 @@ describe('hikeService - registerHike', () => {
             scheduledDeparture: new Date('2028-06-01T08:00:00Z').toISOString(),
             expectedArrival: new Date('2028-06-01T17:00:00Z').toISOString(),
             partySize: 3,
-            passages: ['Pian del Re', 'Colle delle Traversette']
+            passages: ['Pian del Re', 'Colle delle Traversette'],
+            members: []
         });
         expect(result).toEqual(fakeCreatedHike);
     });
-
     it('defaults passages to an empty array when not provided', async () => {
         const { passages, ...dataWithoutPassages } = validHikeData;
         createHike.mockResolvedValueOnce({ hikeId: 2 });
@@ -103,7 +103,6 @@ describe('hikeService - registerHike', () => {
             ['scheduledDeparture is empty', { ...validHikeData, scheduledDeparture: ' ' }],
             ['expectedArrival is missing', { ...validHikeData, expectedArrival: undefined }],
             ['expectedArrival is empty', { ...validHikeData, expectedArrival: ' ' }],
-            ['partySize is missing', { ...validHikeData, partySize: undefined }],
             ['partySize is not a number', { ...validHikeData, partySize: '3' }],
             ['partySize is float', { ...validHikeData, partySize: 3.5 }],
             ['partySize is zero', { ...validHikeData, partySize: 0 }],

@@ -206,7 +206,8 @@ describe('HikeRegistrationPage component', () => {
                 scheduledDeparture: new Date('2028-06-01T08:00').toISOString(),
                 expectedArrival: new Date('2028-06-01T17:00').toISOString(),
                 partySize: 2,
-                passages: ['Passage A', 'Passage B']
+                passages: ['Passage A', 'Passage B'],
+                members: []
             });
 
             expect(await screen.findByRole('heading', { level: 1, name: 'Hike registered!' })).toBeInTheDocument();

@@ -4,7 +4,7 @@ import { isNonEmptyString, isPositiveInt, isValidIsoDateTime } from '../utils/va
 import { MAX_ALERTS } from '../utils/missingHikeRules.js';
 
 // A party member: { name, phone? }, with a non-empty name and, if given, a non-empty phone
-const isValidMember = (member) =>
+export const isValidMember = (member) =>
     member !== null &&
     typeof member === 'object' &&
     !Array.isArray(member) &&
