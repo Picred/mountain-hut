@@ -21,7 +21,7 @@ export const registerHike = async (userId, data) => {
         route,
         scheduledDeparture,
         expectedArrival,
-        partySize,
+        partySize = 1, // optional (MH-20, MH-23): if not given, the hiker alone
         passages = [],
         members = []
     } = data;
