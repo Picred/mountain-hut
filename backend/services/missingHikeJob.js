@@ -156,16 +156,25 @@ export const sendPendingAlertEmails = async (hikesWithEmailToSend, wardenEmails,
         const alertNum = hike.alertNumber;
         const { subject, text } = buildAlertEmail(hike, alertNum);
 
+        let allSent = true;
         for (const email of wardenEmails) {
             try {
                 await sendEmailFn({ to: email, subject, text });
-                await markAlertEmailSentFn(hike.hikeId, alertNum, nowIso);
-                console.log(`Alert #${alertNum} for hike ${hike.hikeId} marked as sent`);
             } catch (err) {
+                allSent = false;
                 console.error(`Failed to send email to ${email} for alert #${alertNum} of hike ${hike.hikeId}:`, err);
             }
         }
 
+        // marked as sent only if every warden received it: otherwise it is sent again at the next check
+        if (!allSent) continue;
+
+        try {
+            await markAlertEmailSentFn(hike.hikeId, alertNum, nowIso);
+            console.log(`Alert #${alertNum} for hike ${hike.hikeId} marked as sent`);
+        } catch (err) {
+            console.error(`Failed to mark alert #${alertNum} of hike ${hike.hikeId} as sent:`, err);
+        }
     }
 };
 
