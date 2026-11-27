@@ -763,7 +763,7 @@ Everything is managed by a background job.
 Registers a planned hike for the authenticated hiker.
 
 - **Authentication:** required (role `hiker`).
-- **Request body:** `scheduledDeparture` and `expectedArrival` must be valid ISO 8601 date-times with an explicit timezone. They are normalized to UTC. `partySize` must be a positive integer. `passages` is an optional array of non-empty strings, stored in the specified order (default `[]`). `members` lists the other people of the party (the authenticated hiker is the point of contact): it is optional (default `[]`) and can contain some or all of them, at most `partySize - 1` objects `{ name, phone }`, where `name` is a non-empty string and `phone` is optional (a non-empty string or `null`). The scheduled departure must be in the future, and the expected arrival must be after departure.
+- **Request body:** `scheduledDeparture` and `expectedArrival` must be valid ISO 8601 date-times with an explicit timezone. They are normalized to UTC. `partySize` is optional (default `1`, the hiker alone): if given, it must be a positive integer. `passages` is an optional array of non-empty strings, stored in the specified order (default `[]`). `members` lists the other people of the party (the authenticated hiker is the point of contact): it is optional (default `[]`) and can contain some or all of them, at most `partySize - 1` objects `{ name, phone }`, where `name` is a non-empty string and `phone` is optional (a non-empty string or `null`). The scheduled departure must be in the future, and the expected arrival must be after departure.
 
 ```json
 {

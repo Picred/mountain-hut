@@ -14,6 +14,9 @@ const initialForm = {
 
 const toISOString = (value) => new Date(value).toISOString();
 
+// the party size is optional: if not given, the hiker alone
+const partySizeOf = (value) => (value === "" ? 1 : Number(value));
+
 const toLocalDateTimeInputValue = (date) => {
     const pad = (value) => String(value).padStart(2, "0");
 
@@ -69,7 +72,7 @@ export const HikeRegistrationPage = () => {
         }));
     };
 
-    const maxMembers = Math.max(0, Number(formData.partySize) - 1);
+    const maxMembers = Math.max(0, partySizeOf(formData.partySize) - 1);
 
     const updateMember = (index, field, value) => {
         setFormData((current) => ({
@@ -84,7 +87,7 @@ export const HikeRegistrationPage = () => {
 
     const addMember = () => {
         setFormData((current) => {
-            const partySize = Number(current.partySize);
+            const partySize = partySizeOf(current.partySize);
 
             if (
                 !Number.isInteger(partySize) ||
@@ -121,7 +124,7 @@ export const HikeRegistrationPage = () => {
 
         const departure = new Date(formData.scheduledDeparture);
         const arrival = new Date(formData.expectedArrival);
-        const partySize = Number(formData.partySize);
+        const partySize = partySizeOf(formData.partySize);
 
         if (Number.isNaN(departure.getTime()) || Number.isNaN(arrival.getTime())) {
             return "Enter valid departure and arrival dates.";
@@ -172,7 +175,7 @@ export const HikeRegistrationPage = () => {
                 route: formData.route.trim(),
                 scheduledDeparture: toISOString(formData.scheduledDeparture),
                 expectedArrival: toISOString(formData.expectedArrival),
-                partySize: Number(formData.partySize),
+                ...(formData.partySize !== "" && { partySize: Number(formData.partySize) }),
                 passages: formData.passages
                     .map((passage) => passage.trim())
                     .filter(Boolean),
@@ -385,7 +388,7 @@ export const HikeRegistrationPage = () => {
 
                     <label className="block max-w-xs">
                         <span className="mb-2 block text-sm font-medium text-slate-200">
-                            Party size
+                            Party size <span className="font-normal text-slate-500">(optional)</span>
                         </span>
                         <input
                             type="number"
@@ -394,7 +397,6 @@ export const HikeRegistrationPage = () => {
                             value={formData.partySize}
                             onChange={(event) => updateField("partySize", event.target.value)}
                             className="w-full rounded-xl border border-white/10 bg-[#172333] px-4 py-3 text-sm text-white outline-none transition-colors focus:border-sky-300/60 focus:ring-1 focus:ring-sky-300/30"
-                            required
                         />
                     </label>
 
@@ -471,7 +473,7 @@ export const HikeRegistrationPage = () => {
                             type="button"
                             onClick={addMember}
                             disabled={
-                                !Number.isInteger(Number(formData.partySize)) ||
+                                !Number.isInteger(partySizeOf(formData.partySize)) ||
                                 formData.members.length >= maxMembers
                             }
                             className="text-sm font-semibold text-sky-300 transition-colors hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
