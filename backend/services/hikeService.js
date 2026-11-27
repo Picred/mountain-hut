@@ -61,12 +61,12 @@ export const registerHike = async (userId, data) => {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    // the other people of the party, all mandatory: the hiker who registers the hike is the point of contact
+    // the other people of the party, some or all of them (none too): the hiker who registers the hike is the point of contact
     if (!Array.isArray(members) || members.some(member => !isValidMember(member))) {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    if (members.length !== partySize - 1) {
+    if (members.length > partySize - 1) {
         throw new BadRequestError('PARTY_SIZE_MISMATCH');
     }
 

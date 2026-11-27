@@ -643,7 +643,7 @@ Retrieves all hikers currently registered as being on a hike, including overdue 
   - `scheduledDeparture` (ISO 8601, UTC)
   - `expectedArrival` (ISO 8601, UTC)
   - `partySize`
-  - `members` (array of the other people of the party, each `{ name, phone }` with `phone` `null` if not given; empty if the hiker is alone)
+  - `members` (array of the other people of the party given by the hiker, at most `partySize - 1`, each `{ name, phone }` with `phone` `null` if not given; empty if none was given)
   - `status` (`scheduled`)
   - `createdAt` (ISO 8601, UTC)
   - `isOverdue` (boolean, `true` if `expectedArrival` is in the past)
@@ -733,7 +733,7 @@ Everything is managed by a background job.
 Registers a planned hike for the authenticated hiker.
 
 - **Authentication:** required (role `hiker`).
-- **Request body:** `scheduledDeparture` and `expectedArrival` must be valid ISO 8601 date-times with an explicit timezone. They are normalized to UTC. `partySize` must be a positive integer. `passages` is an optional array of non-empty strings, stored in the specified order (default `[]`). `members` lists the other people of the party (the authenticated hiker is the point of contact): it must contain exactly `partySize - 1` objects `{ name, phone }`, where `name` is a non-empty string and `phone` is optional (a non-empty string or `null`); it can be omitted only when `partySize` is 1 (default `[]`). The scheduled departure must be in the future, and the expected arrival must be after departure.
+- **Request body:** `scheduledDeparture` and `expectedArrival` must be valid ISO 8601 date-times with an explicit timezone. They are normalized to UTC. `partySize` must be a positive integer. `passages` is an optional array of non-empty strings, stored in the specified order (default `[]`). `members` lists the other people of the party (the authenticated hiker is the point of contact): it is optional (default `[]`) and can contain some or all of them, at most `partySize - 1` objects `{ name, phone }`, where `name` is a non-empty string and `phone` is optional (a non-empty string or `null`). The scheduled departure must be in the future, and the expected arrival must be after departure.
 
 ```json
 {
@@ -780,7 +780,7 @@ Registers a planned hike for the authenticated hiker.
 
 - **Errors:**
   - `400 Bad Request` - `INVALID_INPUT` (missing or invalid fields, non-positive party size, invalid passages, or invalid members).
-  - `400 Bad Request` - `PARTY_SIZE_MISMATCH` (the number of `members` is not `partySize - 1`).
+  - `400 Bad Request` - `PARTY_SIZE_MISMATCH` (more `members` than `partySize - 1`).
   - `400 Bad Request` - `INVALID_DATE` (invalid date-time format or value).
   - `400 Bad Request` - `INVALID_TIME_RANGE` (expected arrival is not after scheduled departure).
   - `400 Bad Request` - `DEPARTURE_IN_THE_PAST` (scheduled departure is in the past).

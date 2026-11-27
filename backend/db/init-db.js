@@ -141,8 +141,8 @@ const HIKES = [
   { id: 3, userId: 3, destination: 'Pian del Re', route: 'Forest path along the river',
     departure: hoursAgo(80), arrival: hoursAgo(74), partySize: 4, status: 'returned',
     passages: ['Bridge over the stream'],
-    members: [{ name: 'Paolo Gallo', phone: '+393333333333' }, { name: 'Elena Costa', phone: null },
-              { name: 'Davide Ricci', phone: null }] },
+    // only some members given: the hiker may not know all of them
+    members: [{ name: 'Paolo Gallo', phone: '+393333333333' }, { name: 'Elena Costa', phone: null }] },
   // overdue: scheduled, but the expected arrival has passed
   { id: 4, userId: 5, destination: 'Viso Mozzo', route: 'Ridge route, return through the Vallanta valley',
     departure: hoursAgo(9), arrival: hoursAgo(2), partySize: 1, status: 'scheduled',
@@ -267,7 +267,7 @@ CREATE TABLE hike_passages (
 );
 
 -- other people taking part in a hike (the hiker who registered it is the point of contact
--- and is not repeated here): party_size = 1 + number of members
+-- and is not repeated here): some or all of them, so at most party_size - 1 members
 CREATE TABLE hike_members (
   hike_id  INTEGER NOT NULL REFERENCES hikes (hike_id) ON DELETE CASCADE,
   position INTEGER NOT NULL CHECK (position > 0),
@@ -331,11 +331,11 @@ async function verify(db) {
   const badParty = await all(db, `
     SELECT h.hike_id
     FROM hikes h
-    LEFT JOIN hike_members m ON m.hike_id = h.hike_id
+    JOIN hike_members m ON m.hike_id = h.hike_id
     GROUP BY h.hike_id
-    HAVING COUNT(m.hike_id) <> h.party_size - 1`);
+    HAVING COUNT(*) > h.party_size - 1`);
   if (badParty.length)
-    throw new Error(`Hike ${badParty.map(r => r.hike_id)}: members differ from party_size - 1`);
+    throw new Error(`Hike ${badParty.map(r => r.hike_id)}: more members than party_size - 1`);
 }
 
 
