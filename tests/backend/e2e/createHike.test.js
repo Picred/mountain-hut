@@ -124,6 +124,7 @@ describe('POST `/api/hikes`', () => {
             hikeId: expect.any(Number),
             userId: userIdOf(ANNA),
             ...payload,
+            members: [],
             status: 'scheduled',
         });
     });
@@ -292,7 +293,7 @@ describe('POST `/api/hikes`', () => {
         expect(res.body).toEqual({ error });
     });
 
-    it.each(['destination', 'route', 'scheduledDeparture', 'expectedArrival', 'partySize'])(
+    it.each(['destination', 'route', 'scheduledDeparture', 'expectedArrival'])(
         'returns 400 INVALID_INPUT when %s is missing',
         async (field) => {
             const cookie = await loginAs(ANNA);

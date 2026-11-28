@@ -128,6 +128,7 @@ describe('GET `/api/hikes/active`', () => {
                 scheduledDeparture: row.scheduled_departure,
                 expectedArrival: row.expected_arrival,
                 partySize: 1,
+                members: [],
                 status: 'scheduled',
                 createdAt: row.created_at,
                 isOverdue: true,
