@@ -109,7 +109,8 @@ beforeAll(async () => {
     const dbPath = path.join(tmpDir, 'test.sqlite');
     execFileSync('node', ['db/init-db.js'], { cwd: BACKEND_DIR, env: { ...process.env, DB_PATH: dbPath } });
 
-    db = new DatabaseSync(dbPath);
+    // the backend job writes to the database while the test reads it: wait for the lock instead of failing
+    db = new DatabaseSync(dbPath, { timeout: 5000 });
     db.prepare("UPDATE hikes SET status = 'returned' WHERE hike_id = ?").run(OVERDUE_SEED_HIKE);
     server = await startServer(dbPath);
 }, 20000);

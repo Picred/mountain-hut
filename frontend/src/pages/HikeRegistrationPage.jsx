@@ -9,9 +9,13 @@ const initialForm = {
     expectedArrival: "",
     partySize: "1",
     passages: [],
+    members: [],
 };
 
 const toISOString = (value) => new Date(value).toISOString();
+
+// the party size is optional: if not given, the hiker alone
+const partySizeOf = (value) => (value === "" ? 1 : Number(value));
 
 const toLocalDateTimeInputValue = (date) => {
     const pad = (value) => String(value).padStart(2, "0");
@@ -68,6 +72,46 @@ export const HikeRegistrationPage = () => {
         }));
     };
 
+    const maxMembers = Math.max(0, partySizeOf(formData.partySize) - 1);
+
+    const updateMember = (index, field, value) => {
+        setFormData((current) => ({
+            ...current,
+            members: current.members.map((member, memberIndex) =>
+                memberIndex === index
+                    ? { ...member, [field]: value }
+                    : member
+            ),
+        }));
+    };
+
+    const addMember = () => {
+        setFormData((current) => {
+            const partySize = partySizeOf(current.partySize);
+
+            if (
+                !Number.isInteger(partySize) ||
+                current.members.length >= partySize - 1
+            ) {
+                return current;
+            }
+
+            return {
+                ...current,
+                members: [...current.members, { name: "", phone: "" }],
+            };
+        });
+    };
+
+    const removeMember = (index) => {
+        setFormData((current) => ({
+            ...current,
+            members: current.members.filter(
+                (_, memberIndex) => memberIndex !== index
+            ),
+        }));
+    };
+
     const validate = () => {
         if (
             !formData.destination.trim() ||
@@ -80,7 +124,7 @@ export const HikeRegistrationPage = () => {
 
         const departure = new Date(formData.scheduledDeparture);
         const arrival = new Date(formData.expectedArrival);
-        const partySize = Number(formData.partySize);
+        const partySize = partySizeOf(formData.partySize);
 
         if (Number.isNaN(departure.getTime()) || Number.isNaN(arrival.getTime())) {
             return "Enter valid departure and arrival dates.";
@@ -100,6 +144,14 @@ export const HikeRegistrationPage = () => {
 
         if (formData.passages.some((passage) => !passage.trim())) {
             return "Remove empty passage fields or enter a passage name.";
+        }
+
+        if (formData.members.length > partySize - 1) {
+            return "The number of party members cannot exceed the party size minus one.";
+        }
+
+        if (formData.members.some((member) => !member.name.trim())) {
+            return "Remove empty party member fields or enter a member name.";
         }
 
         return "";
@@ -123,10 +175,14 @@ export const HikeRegistrationPage = () => {
                 route: formData.route.trim(),
                 scheduledDeparture: toISOString(formData.scheduledDeparture),
                 expectedArrival: toISOString(formData.expectedArrival),
-                partySize: Number(formData.partySize),
+                ...(formData.partySize !== "" && { partySize: Number(formData.partySize) }),
                 passages: formData.passages
                     .map((passage) => passage.trim())
                     .filter(Boolean),
+                members: formData.members.map((member) => ({
+                    name: member.name.trim(),
+                    phone: member.phone.trim() || null,
+                })),
             });
             setFormData(initialForm);
             setRegisteredHike(hike);
@@ -205,6 +261,24 @@ export const HikeRegistrationPage = () => {
                                 {registeredHike.partySize}
                             </strong>
                         </div>
+
+                        {registeredHike.members?.length > 0 && (
+                            <div className="border-t border-white/10 pt-3">
+                                <p className="mb-2 text-slate-400">Party members</p>
+                                <ul className="list-inside list-disc space-y-1 text-slate-200">
+                                    {registeredHike.members.map((member, index) => (
+                                        <li key={index}>
+                                            {member.name}
+                                            {member.phone && (
+                                                <span className="text-slate-400">
+                                                    {" — "}{member.phone}
+                                                </span>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
 
                         {registeredHike.passages?.length > 0 && (
                             <div className="border-t border-white/10 pt-3">
@@ -314,7 +388,7 @@ export const HikeRegistrationPage = () => {
 
                     <label className="block max-w-xs">
                         <span className="mb-2 block text-sm font-medium text-slate-200">
-                            Party size
+                            Party size <span className="font-normal text-slate-500">(optional)</span>
                         </span>
                         <input
                             type="number"
@@ -323,9 +397,96 @@ export const HikeRegistrationPage = () => {
                             value={formData.partySize}
                             onChange={(event) => updateField("partySize", event.target.value)}
                             className="w-full rounded-xl border border-white/10 bg-[#172333] px-4 py-3 text-sm text-white outline-none transition-colors focus:border-sky-300/60 focus:ring-1 focus:ring-sky-300/30"
-                            required
                         />
                     </label>
+
+                    <fieldset className="space-y-3">
+                        <legend className="text-sm font-medium text-slate-200">
+                            Party members <span className="font-normal text-slate-500">(optional)</span>
+                        </legend>
+
+                        <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
+                            <p>
+                                Provide details for some or all of the other members of your party.
+                            </p>
+                            <span className="shrink-0">
+                                {formData.members.length} / {maxMembers}
+                            </span>
+                        </div>
+
+                        {formData.members.map((member, index) => (
+                            <div
+                                key={index}
+                                className="space-y-3 rounded-xl border border-white/10 p-4"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-slate-200">
+                                        Member {index + 1}
+                                    </span>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => removeMember(index)}
+                                        className="rounded-xl border border-white/10 px-3 py-1 text-slate-400 transition-colors hover:border-red-400/40 hover:text-red-300"
+                                        aria-label={`Remove member ${index + 1}`}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <label className="block">
+                                        <span className="mb-2 block text-sm font-medium text-slate-200">
+                                            Name
+                                        </span>
+                                        <input
+                                            type="text"
+                                            value={member.name}
+                                            onChange={(event) =>
+                                                updateMember(index, "name", event.target.value)
+                                            }
+                                            className="w-full rounded-xl border border-white/10 bg-[#172333] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-sky-300/60 focus:ring-1 focus:ring-sky-300/30"
+                                            placeholder="Full name"
+                                            required
+                                        />
+                                    </label>
+
+                                    <label className="block">
+                                        <span className="mb-2 block text-sm font-medium text-slate-200">
+                                            Phone <span className="font-normal text-slate-500">(optional)</span>
+                                        </span>
+                                        <input
+                                            type="tel"
+                                            value={member.phone}
+                                            onChange={(event) =>
+                                                updateMember(index, "phone", event.target.value)
+                                            }
+                                            className="w-full rounded-xl border border-white/10 bg-[#172333] px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-sky-300/60 focus:ring-1 focus:ring-sky-300/30"
+                                            placeholder="Phone number"
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+                        ))}
+
+                        <button
+                            type="button"
+                            onClick={addMember}
+                            disabled={
+                                !Number.isInteger(partySizeOf(formData.partySize)) ||
+                                formData.members.length >= maxMembers
+                            }
+                            className="text-sm font-semibold text-sky-300 transition-colors hover:text-sky-200 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            + Add member
+                        </button>
+
+                        {formData.members.length > maxMembers && (
+                            <p className="text-sm text-red-300">
+                                Remove extra party members or increase the party size.
+                            </p>
+                        )}
+                    </fieldset>
 
                     <fieldset className="space-y-3">
                         <legend className="text-sm font-medium text-slate-200">

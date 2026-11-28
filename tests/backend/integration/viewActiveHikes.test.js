@@ -142,6 +142,7 @@ describe("GET /api/hikes/active", () => {
             "scheduledDeparture": expect.any(String),
             "expectedArrival": expect.any(String),
             "partySize": 1,
+            "members": [],
             "status": "scheduled",
             "createdAt": expect.any(String),
             "isOverdue": expect.any(Boolean),

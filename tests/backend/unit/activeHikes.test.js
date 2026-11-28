@@ -54,6 +54,7 @@ const makeExpectedHike = (overrides = {}) => {
         scheduledDeparture: row.scheduledDeparture,
         expectedArrival: row.expectedArrival,
         partySize: row.partySize,
+        members: [],
         status: row.status,
         createdAt: row.createdAt,
         isOverdue: Date.parse(row.expectedArrival) < Date.parse(NOW),
@@ -198,12 +199,13 @@ describe('getActiveHikes DAO', () => {
 
         dbAll
             .mockResolvedValueOnce([row])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
 
         expect(result).toEqual([makeExpectedHike()]);
-        expect(dbAll).toHaveBeenCalledTimes(2);
+        expect(dbAll).toHaveBeenCalledTimes(3);
     });
 
     it('marks overdue hikes correctly', async () => {
@@ -219,6 +221,7 @@ describe('getActiveHikes DAO', () => {
 
         dbAll
             .mockResolvedValueOnce([overdue, onTime])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
@@ -234,6 +237,7 @@ describe('getActiveHikes DAO', () => {
 
         dbAll
             .mockResolvedValueOnce([row])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
@@ -248,6 +252,7 @@ describe('getActiveHikes DAO', () => {
 
         dbAll
             .mockResolvedValueOnce([row])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
@@ -265,7 +270,8 @@ describe('getActiveHikes DAO', () => {
             .mockResolvedValueOnce([
                 { hikeId: 1, name: 'Pian del Re' },
                 { hikeId: 1, name: 'Lago Fiorenza' },
-            ]);
+            ])
+            .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
 
@@ -296,7 +302,8 @@ describe('getActiveHikes DAO', () => {
                 { hikeId: 1, name: 'Passage A' },
                 { hikeId: 1, name: 'Passage B' },
                 { hikeId: 2, name: 'Passage C' },
-            ]);
+            ])
+            .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
 
@@ -317,6 +324,7 @@ describe('getActiveHikes DAO', () => {
     it('returns an empty passage list when a hike has no passage points', async () => {
         dbAll
             .mockResolvedValueOnce([makeHikeRow()])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
@@ -332,6 +340,7 @@ describe('getActiveHikes DAO', () => {
 
         dbAll
             .mockResolvedValueOnce([row])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
@@ -354,6 +363,7 @@ describe('getActiveHikes DAO', () => {
 
         dbAll
             .mockResolvedValueOnce(rows)
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([]);
 
         const result = await getActiveHikes();
