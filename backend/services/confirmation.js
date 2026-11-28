@@ -14,6 +14,11 @@ export const formatTime = (isoDate) =>
         hour: '2-digit', minute: '2-digit', hour12: false
     });
 
+const formatTables = (tableAllocation = []) =>
+    tableAllocation.length === 0
+        ? 'To be assigned'
+        : tableAllocation.map(t => `${t.tableCode} (${t.allocatedSeats})`).join(', ');
+
 export const plural = (n, singular, pluralForm) => (n === 1 ? singular : pluralForm);
 
 const formatRequirements = (requirements) => {
@@ -91,6 +96,7 @@ export const buildChangesEmail = (booking) => {
         ['Time slot', `${formatTime(booking.startAt)} - ${formatTime(booking.endAt)}`],
         ['Party size', `${booking.partySize} ${plural(booking.partySize, 'person', 'people')}`],
         ['Requirements', formatRequirements(booking.requirements)],
+        ['Tables', formatTables(booking.tableAllocation)],
         ['Booked by', booking.hikerName]
     ];
 
@@ -117,7 +123,7 @@ ${rows}
 </div>`;
 
     return {
-        subject: `Mountain Hut - Booking confirmation ${formatBookingReference(booking.reservationId)}`,
+        subject: `Mountain Hut - Booking updates ${formatBookingReference(booking.reservationId)}`,
         text,
         html
     };

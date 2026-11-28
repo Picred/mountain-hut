@@ -5,7 +5,12 @@ import { hashPassword } from '../models/dao/authenticationDAO.js';
 import { sendBookingConfirmation, sendChangesConfirmation, sendCancellationConfirmation } from '../services/confirmation.js';
 import BadRequestError from '../models/errors/BadRequestError.js';
 import UnauthorizedError from '../models/errors/UnauthorizedError.js';
-import { hasRole } from '../middlewares/role-middleware.js';
+import ensureRole, { hasRole } from '../middlewares/role-middleware.js';
+import {
+    employeeUpdateReservation,
+    employeeCancelReservation,
+    getReservationDetail
+} from '../models/dao/employeeReservationDAO.js';
 
 const router = Router();
 
@@ -101,9 +106,25 @@ router.post('/', async (req, res) => {
 });
 
 /**
+ * GET /api/reservations/:reservationId
+ *
+ * Employee only: full detail of a reservation (hiker, contacts, requirements, tables).
+ */
+router.get('/:reservationId', ensureRole('employee'), async (req, res) => {
+    const reservationId = Number(req.params.reservationId);
+
+    if (!Number.isInteger(reservationId) || reservationId <= 0) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    return res.status(200).json(await getReservationDetail(reservationId));
+});
+
+/**
  * PATCH /api/reservations/:reservationId
  *
- * Updates an authenticated hiker's reservation.
+ * Hiker: updates their own reservation (slotId, partySize, requirements).
+ * Employee: updates any confirmed reservation (partySize, requirements, allocation).
  */
 router.patch('/:reservationId', async (req, res) => {
     const userId = req.user?.user_id;
@@ -117,19 +138,14 @@ router.patch('/:reservationId', async (req, res) => {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    const { slotId, partySize, requirements } = req.body ?? {};
+    const { slotId, partySize, requirements, allocation } = req.body ?? {};
+    const isEmployee = hasRole(req.user, 'employee');
 
-    if (
-        slotId !== undefined &&
-        (!Number.isInteger(slotId) || slotId <= 0)
-    ) {
+    if (slotId !== undefined && (!Number.isInteger(slotId) || slotId <= 0)) {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    if (
-        partySize !== undefined &&
-        (!Number.isInteger(partySize) || partySize <= 0)
-    ) {
+    if (partySize !== undefined && (!Number.isInteger(partySize) || partySize <= 0)) {
         throw new BadRequestError('INVALID_INPUT');
     }
 
@@ -149,21 +165,31 @@ router.patch('/:reservationId', async (req, res) => {
         }
     }
 
+    // The allocation (which table each person sits at) is decided by the employee only.
+    if (allocation !== undefined && (!isEmployee || !Array.isArray(allocation))) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    // The employee cannot change slot for now (to be confirmed with the product owner).
+    if (isEmployee && slotId !== undefined) {
+        throw new BadRequestError('SLOT_CHANGE_NOT_ALLOWED');
+    }
+
     if (
         slotId === undefined &&
         partySize === undefined &&
-        requirements === undefined
+        requirements === undefined &&
+        allocation === undefined
     ) {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    const reservation = await updateReservation(
-        reservationId,
-        userId,
-        { slotId, partySize, requirements }
-    );
+    const reservation = isEmployee
+        ? await employeeUpdateReservation(reservationId, { partySize, requirements, allocation })
+        : await updateReservation(reservationId, userId, { slotId, partySize, requirements });
 
-    // Email failures are handled and logged by the confirmation service.
+    // Email failures are handled and logged by the confirmation service
+    // (guests have no email: nothing is sent).
     sendChangesConfirmation(reservation.reservationId);
 
     return res.status(200).json(reservation);
@@ -172,7 +198,7 @@ router.patch('/:reservationId', async (req, res) => {
 /**
  * DELETE /api/reservations/:reservationId
  *
- * Cancels an authenticated hiker's reservation.
+ * Cancels a reservation: the owner's own one, or any confirmed one for an employee.
  */
 router.delete('/:reservationId', async (req, res) => {
     const userId = req.user?.user_id;
@@ -186,7 +212,9 @@ router.delete('/:reservationId', async (req, res) => {
         throw new BadRequestError('INVALID_INPUT');
     }
 
-    const reservation = await cancelReservation(reservationId, userId);
+    const reservation = hasRole(req.user, 'employee')
+        ? await employeeCancelReservation(reservationId)
+        : await cancelReservation(reservationId, userId);
 
     // Email failures are handled and logged by the confirmation service.
     sendCancellationConfirmation(reservation.reservationId);

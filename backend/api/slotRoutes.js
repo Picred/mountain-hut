@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat.js';
+import { getSlotFloor, rearrangeSlotAllocations } from '../models/dao/employeeReservationDAO.js';
+import { sendChangesConfirmation } from '../services/confirmation.js';
 
 import ensureRole, { hasRole } from '../middlewares/role-middleware.js';
 import {
@@ -181,6 +183,55 @@ router.delete('/:slotId/menu', employeeOnly, async (req, res) => {
     await setSlotMenu(slotId, null);
 
     return res.status(204).end();
+});
+
+const MAX_MOVES_PER_REQUEST = 200;
+
+/**
+ * GET /api/slots/:slotId/floor
+ *
+ * Employee only: data for the floor map of the slot, in a single call.
+ * - tables[]: seats, booked/remaining seats and the guests seated there
+ * - reservations[]: details of each reservation and the tables where its people are seated
+ */
+router.get('/:slotId/floor', employeeOnly, async (req, res) => {
+    const slotId = parseId(req.params.slotId);
+
+    if (!isId(slotId)) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    return res.status(200).json(await getSlotFloor(slotId));
+});
+
+/**
+ * PUT /api/slots/:slotId/allocations
+ *
+ * Employee only: rearranges people across tables, all or nothing.
+ * Body: { reservations: [{ reservationId, tables: [{ tableId, seats }] }] }
+ * Each item is the FINAL seating of that reservation; the ones not listed do not move.
+ */
+router.put('/:slotId/allocations', employeeOnly, async (req, res) => {
+    const slotId = parseId(req.params.slotId);
+    const moves = req.body?.reservations;
+
+    if (
+        !isId(slotId) ||
+        !Array.isArray(moves) ||
+        moves.length === 0 ||
+        moves.length > MAX_MOVES_PER_REQUEST ||
+        !moves.every(move => isId(move?.reservationId) && Array.isArray(move?.tables))
+    ) {
+        throw new BadRequestError('INVALID_INPUT');
+    }
+
+    const result = await rearrangeSlotAllocations(slotId, moves);
+
+    // One email for each reservation whose tables changed.
+    result.changedReservationIds.forEach(id => sendChangesConfirmation(id));
+
+    // The new floor is returned so the frontend does not need another call.
+    return res.status(200).json({ ...result, floor: await getSlotFloor(slotId) });
 });
 
 export default router;

@@ -504,7 +504,7 @@ const validateRequirement = requirement => {
     }
 };
 
-const validateRequirementOperations = operations => {
+export const validateRequirementOperations = operations => {
     if (!operations || typeof operations !== 'object' || Array.isArray(operations)) {
         throw new BadRequestError('INVALID_INPUT');
     }
@@ -591,7 +591,10 @@ const getUpdatedReservation = async (reservationId, connection) => {
  * Slot and party-size changes release the previous allocation and calculate a
  * new one inside the same write transaction, preventing overbooking.
  */
-export const updateReservation = async (reservationId, userId, changes) => {
+export const updateReservation = (reservationId, userId, changes) =>
+    runExclusive(() => updateReservationInTransaction(reservationId, userId, changes));
+
+const updateReservationInTransaction = async (reservationId, userId, changes) => {
     if (
         !Number.isInteger(reservationId) ||
         reservationId <= 0 ||

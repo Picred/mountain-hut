@@ -29,6 +29,14 @@ export const getBookingConfirmationData = async (reservationId) => {
         WHERE reservation_id = ?
         ORDER BY id
     `, [reservationId]);
+    const tables = await dbAll(`
+        SELECT t.table_code, rt.allocated_seats
+        FROM reservation_table rt
+        JOIN slot_tables st ON st.slot_table_id = rt.slot_table_id
+        JOIN tables t ON t.table_id = st.table_id
+        WHERE rt.reservation_id = ?
+        ORDER BY t.table_id
+    `, [reservationId]);
 
     return {
         reservationId: row.reservation_id,
@@ -41,6 +49,10 @@ export const getBookingConfirmationData = async (reservationId) => {
             peopleCount: req.people_count,
             description: req.description,
             isAllergy: req.is_allergy === 1
-        }))
-    };
+        })),
+        tableAllocation: tables.map(table => ({
+            tableCode: table.table_code,
+            allocatedSeats: table.allocated_seats
+        })),
+    };         
 };
